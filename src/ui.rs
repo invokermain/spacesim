@@ -1,3 +1,6 @@
+mod layer;
+mod render_structs;
+
 use bevy::{
     input::keyboard::KeyboardInput,
     prelude::{Entity, EventReader, KeyCode, ResMut, Resource, World},
@@ -9,7 +12,12 @@ use bevy_egui::{
 use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
-use crate::economy::components::{CommodityType, Market, Population};
+use crate::economy::{
+    components::{CommodityType, Population},
+    market::Market,
+};
+
+use self::layer::get_planet_companies;
 
 #[derive(Default)]
 enum View {
@@ -126,4 +134,8 @@ fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
                 });
             }
         });
+
+    for company in get_planet_companies(world) {
+        ui.label("something");
+    }
 }

@@ -1,5 +1,3 @@
-use std::collections::{HashSet, VecDeque};
-
 use bevy::{
     prelude::{Bundle, Component, Entity},
     utils::HashMap,
@@ -7,6 +5,8 @@ use bevy::{
 use std::fmt::Debug;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+
+use super::market::Market;
 
 pub const COMMODITY_COUNT: usize = 3;
 pub type CommodityArr<T> = [T; COMMODITY_COUNT];
@@ -47,36 +47,14 @@ impl TryFrom<i32> for CommodityType {
     }
 }
 
-#[derive(Component)]
-pub struct Market {
-    // The market serves as an abstraction over the various economic components of a
-    // Planet. It is responsible for tracking macroeconomic values such as demand.
-    pub demand: CommodityArr<f32>,
-    pub supply_history: CommodityArr<VecDeque<f32>>,
-    pub total_supply: CommodityArr<f32>,
-    pub trade_routes: HashSet<u32>,
-    pub companies: HashSet<Entity>,
-}
-
-impl Default for Market {
-    fn default() -> Self {
-        Self {
-            demand: [0.0; COMMODITY_COUNT],
-            supply_history: [
-                VecDeque::with_capacity(256),
-                VecDeque::with_capacity(256),
-                VecDeque::with_capacity(256),
-            ],
-            total_supply: [0.0; COMMODITY_COUNT],
-            trade_routes: HashSet::new(),
-            companies: HashSet::new(),
+impl From<usize> for CommodityType {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => CommodityType::Food,
+            1 => CommodityType::Water,
+            2 => CommodityType::Clothes,
+            _ => panic!("No commodity type matching this index"),
         }
-    }
-}
-
-impl Market {
-    pub fn add_company(&mut self, entity: Entity) {
-        self.companies.insert(entity.clone());
     }
 }
 
@@ -106,6 +84,15 @@ impl CommodityStorage {
             available_capacity: max_capacity,
         }
     }
+
+    pub fn store(&mut self, commodity_type: CommodityType, units: f32) -> bool {
+        if units > self.available_capacity {
+            return false;
+        }
+        self.storage[commodity_type as usize] += units;
+        self.available_capacity += units;
+        true
+    }
 }
 
 #[derive(Component)]
@@ -119,8 +106,8 @@ pub struct Population {
 }
 
 #[derive(Component)]
-pub struct MarketMember {
-    pub member_of: Entity,
+pub struct OnPlanet {
+    pub planet: Entity,
 }
 
 #[derive(Bundle)]
@@ -128,7 +115,7 @@ pub struct CompanyBundle {
     pub production: Production,
     pub commodity_storage: CommodityStorage,
     pub wealth: Wealth,
-    pub market_member: MarketMember,
+    pub on_planet: OnPlanet,
 }
 
 #[derive(Bundle)]
@@ -136,27 +123,3 @@ pub struct PlanetBundle {
     pub market: Market,
     pub population: Population,
 }
-
-// Entity / Component Tree:
-// - Companies: A company exists on a certain Planet and can produce goods.
-//     - Production
-//     - CommmodityStorage
-//     - Wealth
-//     - MarketMember
-// - Planets:
-//     - Market
-//     - Population
-// - Ships: These can enact trades between Planets via their Markets
-//     - Wealth
-//     - CommmodityStorage
-
-// Systems:
-// - ManufactureSystem: Wealth, Production, Storage, MarketMember
-//     Logic: If can afford, produce goods, increase storage, decrease wealth
-//     Event: MarketSupplyUpdate(MarketId, Commodity, +Produced)
-// - MarketSupplyUpdateSystem: Market, Event: MarketSupplyUpdate
-//     Logic: Update Total Supply, Update Supply History, Update Demand
-// - PopulationConsumeSystem: Population, Market
-//     Logic: split consumption across number of companies, purchase supply from those
-//            companies at market price.
-//     Event: MarketSupplyUpdate(MarketId, Commodity, -Consumed)
