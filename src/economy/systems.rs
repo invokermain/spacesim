@@ -1,12 +1,10 @@
 use bevy::{
-    prelude::{Entity, EventReader, EventWriter, Query},
-    utils::HashMap,
+    prelude::{Entity, EventWriter, Query},
 };
 
 use super::{
-    components::{CommodityArr, CommodityStorage, OnPlanet, Production, Wealth, COMMODITY_COUNT},
-    events::CommodityProducedEvent,
-    market::Market,
+    components::{CommodityStorage, Production, Wealth, Population},
+    events::CommodityProducedEvent, market::Market,
 };
 
 pub fn company_production(
@@ -21,9 +19,9 @@ pub fn company_production(
                     let cost = units * producable.cost_per_unit;
 
                     // we can produce something
-                    if wealth.amount > cost {
+                    if wealth.value > cost {
                         storage.store(commodity_idx.into(), units);
-                        wealth.amount -= cost;
+                        wealth.value -= cost;
 
                         ev_commodity_produced.send(CommodityProducedEvent {
                             source_entity: entity,
@@ -37,22 +35,8 @@ pub fn company_production(
     }
 }
 
-pub fn market_supply_update(
-    mut ev_commodity_produced: EventReader<CommodityProducedEvent>,
-    mut q_market: Query<&mut Market>,
-    q_on_planet: Query<&OnPlanet>,
-) {
-    let mut agg_supply: HashMap<Entity, CommodityArr<f32>> = HashMap::new();
-    for event in ev_commodity_produced.iter() {
-        let entry = agg_supply
-            .entry(event.source_entity)
-            .or_insert([0.0; COMMODITY_COUNT]);
-        entry[event.commodity_type as usize] += event.change;
-    }
-
-    for (entity, changed_supply) in agg_supply.iter() {
-        let planet_id = q_on_planet.get(*entity).unwrap().planet;
-        let mut market = q_market.get_mut(planet_id).unwrap();
-        market.update_supply(changed_supply);
+pub fn population_consumption(mut query: Query<(&Population, &Market)>) {
+    for (pop, market ) in query.iter() {
+        
     }
 }

@@ -97,7 +97,7 @@ impl CommodityStorage {
 
 #[derive(Component)]
 pub struct Wealth {
-    pub amount: f32,
+    pub value: f32,
 }
 
 #[derive(Component)]
@@ -107,16 +107,33 @@ pub struct Population {
 
 #[derive(Component)]
 pub struct OnPlanet {
-    pub planet: Entity,
+    pub value: Entity,
+}
+
+#[derive(Component)]
+pub struct ConnectedStorage {
+    pub value: Option<Entity>,
+}
+
+#[derive(Component)]
+pub struct OwnedBy {
+    pub value: Option<Entity>,
+}
+
+#[derive(Bundle)]
+pub struct ManufactoryBundle {
+    pub production: Production,
+    pub connected_storage: ConnectedStorage,
+    pub on_planet: OnPlanet,
+    pub owned_by: OwnedBy,
 }
 
 #[derive(Bundle)]
 pub struct CompanyBundle {
-    pub production: Production,
-    pub commodity_storage: CommodityStorage,
     pub wealth: Wealth,
-    pub on_planet: OnPlanet,
+    pub commodity_storage: CommodityStorage
 }
+
 
 #[derive(Bundle)]
 pub struct PlanetBundle {
