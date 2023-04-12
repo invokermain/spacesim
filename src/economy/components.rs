@@ -58,15 +58,11 @@ impl From<usize> for CommodityType {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ProductionInfo {
-    pub cost_per_unit: f32,
-    pub output_per_tick: f32,
-}
-
 #[derive(Component)]
 pub struct Production {
-    pub info: CommodityArr<Option<ProductionInfo>>,
+    pub commodity_type: CommodityType,
+    pub cost_per_unit: f32,
+    pub output_per_tick: f32,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -90,7 +86,7 @@ impl CommodityStorage {
             return false;
         }
         self.storage[commodity_type as usize] += units;
-        self.available_capacity += units;
+        self.available_capacity -= units;
         true
     }
 }
@@ -111,29 +107,35 @@ pub struct OnPlanet {
 }
 
 #[derive(Component)]
-pub struct ConnectedStorage {
-    pub value: Option<Entity>,
+pub struct OwnedFactories {
+    pub value: Vec<Entity>,
+}
+
+impl Default for OwnedFactories {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+        }
+    }
 }
 
 #[derive(Component)]
-pub struct OwnedBy {
-    pub value: Option<Entity>,
-}
+pub struct IsCompany {}
 
 #[derive(Bundle)]
 pub struct ManufactoryBundle {
     pub production: Production,
-    pub connected_storage: ConnectedStorage,
     pub on_planet: OnPlanet,
-    pub owned_by: OwnedBy,
 }
 
 #[derive(Bundle)]
 pub struct CompanyBundle {
+    pub is: IsCompany,
     pub wealth: Wealth,
-    pub commodity_storage: CommodityStorage
+    pub commodity_storage: CommodityStorage,
+    pub owned_factories: OwnedFactories,
+    pub on_planet: OnPlanet,
 }
-
 
 #[derive(Bundle)]
 pub struct PlanetBundle {

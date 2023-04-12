@@ -2,8 +2,8 @@ use bevy::prelude::Commands;
 
 use crate::economy::{
     components::{
-        make_commodity_arr_from_iter, CommodityStorage, CommodityType, ManufactoryBundle, OnPlanet,
-        PlanetBundle, Population, Production, ProductionInfo, Wealth, CompanyBundle, ConnectedStorage, OwnedBy,
+        CommodityStorage, CommodityType, CompanyBundle, IsCompany, ManufactoryBundle, OnPlanet,
+        OwnedFactories, PlanetBundle, Population, Production, Wealth,
     },
     market::Market,
 };
@@ -18,26 +18,24 @@ pub fn create_world(mut commands: Commands) {
         })
         .id();
 
-    let company_id = commands
-        .spawn(CompanyBundle {
-            wealth: Wealth { value: 100.0 },
-            commodity_storage: CommodityStorage::new(100.0),
+    let manufactory_id = commands
+        .spawn(ManufactoryBundle {
+            production: Production {
+                commodity_type: CommodityType::Food,
+                cost_per_unit: 0.5,
+                output_per_tick: 0.1,
+            },
+            on_planet: OnPlanet { value: planet_id },
         })
         .id();
 
-
-    commands.spawn(ManufactoryBundle {
-        production: Production {
-            info: make_commodity_arr_from_iter([(
-                CommodityType::Food,
-                Some(ProductionInfo {
-                    cost_per_unit: 0.5,
-                    output_per_tick: 0.1,
-                }),
-            )]),
+    commands.spawn(CompanyBundle {
+        wealth: Wealth { value: 100.0 },
+        commodity_storage: CommodityStorage::new(100.0),
+        is: IsCompany {},
+        owned_factories: OwnedFactories {
+            value: vec![manufactory_id],
         },
         on_planet: OnPlanet { value: planet_id },
-        connected_storage: ConnectedStorage { value: Some(company_id) },
-        owned_by: OwnedBy { value: Some(company_id) },
     });
 }

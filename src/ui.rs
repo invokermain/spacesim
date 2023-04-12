@@ -95,8 +95,8 @@ pub fn render_ui(world: &mut World) {
 }
 
 fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
-    let (_population, market) = world
-        .query::<(&Population, &Market)>()
+    let (planet_id, _population, market) = world
+        .query::<(Entity, &Population, &Market)>()
         .get_single(&world)
         .unwrap();
 
@@ -126,16 +126,23 @@ fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
                         ui.label(format!("{:?}", commodity_type));
                     });
                     row.col(|ui| {
-                        ui.label(market.total_supply[commodity_type as usize].to_string());
+                        ui.label(format!(
+                            "{:.1}",
+                            market.total_supply[commodity_type as usize]
+                        ));
                     });
                     row.col(|ui| {
-                        ui.label(market.demand[commodity_type as usize].to_string());
+                        ui.label(format!("{:.1}", market.demand[commodity_type as usize]));
                     });
                 });
             }
         });
 
-    for company in get_planet_companies(world) {
-        ui.label("something");
+    ui.separator();
+
+    for (idx, company) in get_planet_companies(planet_id, world).iter().enumerate() {
+        ui.label(format!("Company #{}", idx));
+        ui.label(format!("wealth: {:.1}", company.wealth));
+        ui.label(format!("storage: {:?}", company.commodity_storage));
     }
 }
