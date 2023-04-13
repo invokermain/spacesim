@@ -72,6 +72,19 @@ pub struct CommodityStorage {
     pub available_capacity: f32,
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+pub struct CommodityPricing {
+    pub value: CommodityArr<f32>,
+}
+
+impl Default for CommodityPricing {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+        }
+    }
+}
+
 impl CommodityStorage {
     pub fn new(max_capacity: f32) -> Self {
         CommodityStorage {
@@ -133,8 +146,24 @@ pub struct CompanyBundle {
     pub is: IsCompany,
     pub wealth: Wealth,
     pub commodity_storage: CommodityStorage,
+    pub commodity_pricing: CommodityPricing,
     pub owned_factories: OwnedFactories,
     pub on_planet: OnPlanet,
+}
+
+impl CompanyBundle {
+    pub fn new(wealth: f32, owned_factories: &Vec<Entity>, on_planet: Entity) -> Self {
+        CompanyBundle {
+            is: IsCompany {},
+            wealth: Wealth { value: wealth },
+            commodity_storage: CommodityStorage::new(100.0),
+            commodity_pricing: CommodityPricing::default(),
+            owned_factories: OwnedFactories {
+                value: owned_factories.clone(),
+            },
+            on_planet: OnPlanet { value: on_planet },
+        }
+    }
 }
 
 #[derive(Bundle)]

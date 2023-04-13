@@ -2,8 +2,8 @@ use bevy::prelude::Commands;
 
 use crate::economy::{
     components::{
-        CommodityStorage, CommodityType, CompanyBundle, IsCompany, ManufactoryBundle, OnPlanet,
-        OwnedFactories, PlanetBundle, Population, Production, Wealth,
+        CommodityType, CompanyBundle, ManufactoryBundle, OnPlanet, PlanetBundle, Population,
+        Production,
     },
     market::Market,
 };
@@ -29,13 +29,5 @@ pub fn create_world(mut commands: Commands) {
         })
         .id();
 
-    commands.spawn(CompanyBundle {
-        wealth: Wealth { value: 100.0 },
-        commodity_storage: CommodityStorage::new(100.0),
-        is: IsCompany {},
-        owned_factories: OwnedFactories {
-            value: vec![manufactory_id],
-        },
-        on_planet: OnPlanet { value: planet_id },
-    });
+    commands.spawn(CompanyBundle::new(100.0, &vec![manufactory_id], planet_id));
 }
