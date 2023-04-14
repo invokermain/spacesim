@@ -138,6 +138,14 @@ fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
             }
         });
 
+    market
+        .transaction_history
+        .iter()
+        .take(10)
+        .for_each(|transaction| {
+            ui.label(format!("{:?}", transaction));
+        });
+
     ui.separator();
 
     for (idx, company) in get_planet_companies(planet_id, world).iter().enumerate() {

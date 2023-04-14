@@ -6,7 +6,9 @@ mod worldgen;
 use bevy::{prelude::App, DefaultPlugins};
 use bevy_egui::EguiPlugin;
 use economy::{
-    events::CommodityProducedEvent, market::market_supply_update, systems::company_simulate,
+    events::CommodityProducedEvent,
+    market::market_supply_update,
+    systems::{company_simulate, population_consumption},
 };
 use ui::{render_ui, ui_controls, UIState};
 use worldgen::create_world;
@@ -22,5 +24,6 @@ fn main() {
         .add_system(ui_controls)
         .add_system(company_simulate)
         .add_system(market_supply_update)
+        .add_system(population_consumption)
         .run();
 }

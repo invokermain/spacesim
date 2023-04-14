@@ -2,11 +2,12 @@ use std::collections::{HashMap, VecDeque};
 
 use super::{
     components::{
-        CommodityArr, CommodityPricing, CommodityStorage, CommodityType, OnPlanet, COMMODITY_COUNT, Wealth,
+        CommodityArr, CommodityPricing, CommodityStorage, CommodityType, OnPlanet, Wealth,
+        COMMODITY_COUNT,
     },
     events::CommodityProducedEvent,
 };
-use bevy::prelude::{Component, Entity, EventReader, Query};
+use bevy::prelude::{info, Component, Entity, EventReader, Query};
 
 // COMPONENT
 #[derive(Component)]
@@ -17,7 +18,7 @@ pub struct Market {
     pub supply_history: CommodityArr<VecDeque<f32>>,
     pub total_supply: CommodityArr<f32>,
     pub market_members: Vec<Entity>,
-    pub transaction_history: VecDeque<CommitedTransaction>,
+    pub transaction_history: VecDeque<Transaction>,
 }
 
 impl Default for Market {
@@ -50,101 +51,133 @@ impl Market {
     pub fn posit_purchase(
         &self,
         commodity_type: CommodityType,
-        quantity: f32,
+        units: f32,
         query: &Query<&CommodityStorage, &CommodityPricing>,
     ) -> Option<MarketPurchaseQuote> {
-        if self.total_supply[commodity_type.into()] == 0.0 {
+        if self.total_supply[commodity_type as usize] == 0.0 {
             return None;
         };
-        let mut unfulfilled_quantity = quantity;
-        let mut fulfilled_quantity = 0.0;
+        let mut unfulfilled_units = units;
+        let mut fulfilled_units = 0.0;
         let mut total_cost = 0.0;
         let mut quoted_transactions = Vec::new();
 
-        for member in self.market_members {
-            // Currently we determine price via a global market price. However in future we could delegate price decisions
-            // to the market member, e.g. base on opinion of player.
-            let member_storage = query.get_component::<CommodityStorage>(member).unwrap();
-            let commodity_pricing = query.get_component::<CommodityPricing>(member).unwrap();
+        for member in &self.market_members {
+            // Currently we determine price via a global market price. However in future
+            // we could delegate price decisions to the market member, e.g. base on
+            // opinion of player.
+            let member_storage = query.get_component::<CommodityStorage>(*member).unwrap();
+            let commodity_pricing = query.get_component::<CommodityPricing>(*member).unwrap();
             let in_stock = member_storage.storage[commodity_type as usize];
-            let fulfillable_quantity = f32::max(in_stock, unfulfilled_quantity);
+            let fulfillable_units = f32::max(in_stock, unfulfilled_units);
             let cost = self.demand_modifier() * commodity_pricing.value[commodity_type as usize];
 
-            quoted_transactions.push(QuoteTransaction {
+            quoted_transactions.push(PurchaseQuote {
                 seller: member.clone(),
                 commodity_type,
-                quantity: fulfillable_quantity,
-                cost,
-                unit_cost: cost / fulfillable_quantity,
+                units: fulfillable_units,
+                unit_price: cost / fulfillable_units,
             });
 
             total_cost += cost;
-            fulfillable_quantity += fulfillable_quantity;
-            unfulfilled_quantity -= unfulfilled_quantity;
+            fulfilled_units += fulfillable_units;
+            unfulfilled_units -= unfulfilled_units;
 
-            if unfulfilled_quantity == 0.0 {
+            if unfulfilled_units == 0.0 {
                 break;
             }
         }
 
         Some(MarketPurchaseQuote {
             commodity_type,
-            quantity: fulfilled_quantity,
-            cost: total_cost,
-            unit_cost: total_cost / fulfilled_quantity,
+            units: fulfilled_units,
+            unit_cost: total_cost / fulfilled_units,
             quoted_transactions,
         })
     }
 
     pub fn make_transaction(
-        transaction: &RequestTransaction,
-        mut query: Query<(&mut CommodityStorage, &mut Wealth)>
-    ) -> Result<CommittedTransaction, String> {
-        let mut seller_storage = query.get_component::<CommodityStorage>(transaction.seller).unwrap();
-        let mut buyer_storage = query.get_component::<CommodityStorage>(transaction.buyer).unwrap();
+        &mut self,
+        transaction: &Transaction,
+        query: &mut Query<(&mut CommodityStorage, &mut Wealth)>,
+    ) -> Result<(), String> {
+        let [(mut seller_storage, mut seller_wealth), (mut buyer_storage, mut buyer_wealth)] =
+            query
+                .get_many_mut([transaction.seller, transaction.buyer])
+                .unwrap();
+        let transaction_total_cost = transaction.unit_price * transaction.units;
 
-        
+        // validate that the transaction can go ahead
+        if !seller_storage.can_remove(transaction.commodity_type, transaction.units) {
+            return Err(format!(
+                "Seller does not have {:.2} units of {:?} available",
+                transaction.units, transaction.commodity_type
+            )
+            .into());
+        }
+        if !buyer_storage.can_store(transaction.units) {
+            return Err(format!(
+                "Buyer does not have room to store {:.2} units of {:?} available",
+                transaction.units, transaction.commodity_type
+            )
+            .into());
+        }
+        if buyer_wealth.value < transaction_total_cost {
+            return Err(format!(
+                "Buyer cannot afford {:.2} cost, they only have {:.2} available",
+                transaction_total_cost, buyer_wealth.value
+            )
+            .into());
+        }
 
-        Err("foo".into())
+        seller_storage.remove(transaction.commodity_type, transaction.units);
+        buyer_storage.store(transaction.commodity_type, transaction.units);
+        buyer_wealth.value -= transaction_total_cost;
+        seller_wealth.value += transaction_total_cost;
+
+        self.transaction_history.push_front(transaction.clone());
+
+        info!("Transaction made: {:?}", transaction);
+
+        Ok(())
     }
+}
 
-    pub fn make_transaction_many(
-        transactions: Vec<RequestTransaction>,
-    ) -> Vec<Result<CommittedTransaction, String>> {
-        None
+#[derive(Clone)]
+pub struct PurchaseQuote {
+    pub seller: Entity,
+    pub commodity_type: CommodityType,
+    pub units: f32,
+    pub unit_price: f32,
+}
+
+impl PurchaseQuote {
+    pub fn to_transaction(&self, entity: Entity) -> Transaction {
+        Transaction {
+            buyer: entity.clone(),
+            seller: self.seller,
+            commodity_type: self.commodity_type,
+            units: self.units,
+            unit_price: self.unit_price,
+        }
     }
 }
 
-pub struct CommittedTransaction {
-    seller: Entity,
-    buyer: Entity,
-    commodity_type: CommodityType,
-    quantity: f32,
-    unit_cost: f32,
+#[derive(Clone, Debug)]
+pub struct Transaction {
+    pub buyer: Entity,
+    pub seller: Entity,
+    pub commodity_type: CommodityType,
+    pub units: f32,
+    pub unit_price: f32,
 }
 
-pub struct QuoteTransaction {
-    seller: Entity,
-    commodity_type: CommodityType,
-    quantity: f32,
-    unit_price: f32
-}
-
-pub struct RequestTransaction {
-    buyer: Entity,
-    seller: Entity,
-    commodity_type: CommodityType,
-    quantity: f32,
-    unit_price: f32,
-    acceptable_margin: f32,
-}
-
+#[derive(Clone)]
 pub struct MarketPurchaseQuote {
-    commodity_type: CommodityType,
-    quantity: f32,
-    cost: f32,
-    unit_cost: f32,
-    quoted_transactions: Vec<QuoteTransaction>,
+    pub commodity_type: CommodityType,
+    pub units: f32,
+    pub unit_cost: f32,
+    pub quoted_transactions: Vec<PurchaseQuote>,
 }
 
 // SYSTEMS
