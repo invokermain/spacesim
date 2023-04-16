@@ -6,6 +6,7 @@ use bevy::prelude::{Entity, World};
 pub fn get_planet_companies(planet: Entity, world: &mut World) -> Vec<RenderCompany> {
     world
         .query::<(
+            Entity,
             &IsCompany,
             &Wealth,
             &CommodityStorage,
@@ -13,10 +14,11 @@ pub fn get_planet_companies(planet: Entity, world: &mut World) -> Vec<RenderComp
             &OnPlanet,
         )>()
         .iter(world)
-        .filter(|result| result.4.value == planet)
+        .filter(|result| result.5.value == planet)
         .map(|result| RenderCompany {
-            wealth: result.1.value,
-            commodity_storage: result.2.storage,
+            entity: result.0,
+            wealth: result.2.value,
+            commodity_storage: result.3.storage,
         })
         .collect()
 }

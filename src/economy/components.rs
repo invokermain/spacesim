@@ -80,7 +80,7 @@ pub struct CommodityPricing {
 impl Default for CommodityPricing {
     fn default() -> Self {
         Self {
-            value: Default::default(),
+            value: [1.0, 0.5, 2.0],
         }
     }
 }

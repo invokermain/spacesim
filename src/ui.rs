@@ -100,6 +100,8 @@ fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
         .get_single(&world)
         .unwrap();
 
+    ui.strong(format!("Planet {:?}", planet_id));
+    ui.separator();
     ui.strong("MARKET");
 
     let table = TableBuilder::new(ui)
@@ -131,25 +133,32 @@ fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
                             market.total_supply[commodity_type as usize]
                         ));
                     });
-                    row.col(|ui| {
-                        ui.label(format!("{:.1}", market.demand[commodity_type as usize]));
-                    });
+                    // row.col(|ui| {
+                    //     ui.label(format!("{:.1}", market.de[commodity_type as usize]));
+                    // });
                 });
             }
         });
+
+    ui.label(format!("supply_pressure: {:?}", market.supply_pressure));
+    ui.label(format!("demand_pressure: {:?}", market.demand_pressure));
+    ui.label(format!(
+        "price_modifier: {:?}",
+        market.demand_price_modifier
+    ));
 
     market
         .transaction_history
         .iter()
         .take(10)
         .for_each(|transaction| {
-            ui.label(format!("{:?}", transaction));
+            ui.label(format!("{:.2} | {:?}", transaction.0, transaction.1));
         });
 
     ui.separator();
 
-    for (idx, company) in get_planet_companies(planet_id, world).iter().enumerate() {
-        ui.label(format!("Company #{}", idx));
+    for company in get_planet_companies(planet_id, world).iter() {
+        ui.label(format!("Company {:?}", company.entity));
         ui.label(format!("wealth: {:.1}", company.wealth));
         ui.label(format!("storage: {:?}", company.commodity_storage));
     }
