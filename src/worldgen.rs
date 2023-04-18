@@ -9,6 +9,15 @@ use crate::{
         },
         market::Market,
     },
+use crate::{
+    common::marker_components::IsPlanet,
+    economy::{
+        components::{
+            CommodityType, CompanyBundle, ManufactoryBundle, OnPlanet, Population, Production,
+            Wealth,
+        },
+        market::Market,
+    },
 };
 
 pub fn create_world(mut commands: Commands) {
@@ -21,6 +30,7 @@ pub fn create_world(mut commands: Commands) {
             Wealth {
                 value: f32::INFINITY,
             },
+            IsPlanet {},
             IsPlanet {},
         ))
         .id();
