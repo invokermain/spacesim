@@ -31,16 +31,16 @@ impl Default for Market {
         Self {
             demand_pressure: [0.0; COMMODITY_COUNT],
             supply_pressure: [0.0; COMMODITY_COUNT],
-            supply_history: [
-                VecDeque::from_iter(vec![0.0; 256]),
-                VecDeque::from_iter(vec![0.0; 256]),
-                VecDeque::from_iter(vec![0.0; 256]),
-            ],
             total_supply: [0.0; COMMODITY_COUNT],
             market_members: Vec::new(),
-            transaction_history: VecDeque::new(),
-            production_history: VecDeque::new(),
-            consumption_history: VecDeque::new(),
+            supply_history: [
+                VecDeque::from_iter(vec![0.0; MAX_HISTORY_LENGTH]),
+                VecDeque::from_iter(vec![0.0; MAX_HISTORY_LENGTH]),
+                VecDeque::from_iter(vec![0.0; MAX_HISTORY_LENGTH]),
+            ],
+            transaction_history: VecDeque::with_capacity(MAX_HISTORY_LENGTH),
+            production_history: VecDeque::with_capacity(MAX_HISTORY_LENGTH),
+            consumption_history: VecDeque::with_capacity(MAX_HISTORY_LENGTH),
             demand_price_modifier: [1.0; COMMODITY_COUNT],
         }
     }

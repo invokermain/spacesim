@@ -2,10 +2,7 @@ mod planet_view;
 mod query_layer;
 mod render_structs;
 
-use bevy::{
-    input::keyboard::KeyboardInput,
-    prelude::{Entity, EventReader, KeyCode, ResMut, Resource, World},
-};
+use bevy::prelude::{Entity, Resource, World};
 use bevy_egui::{
     egui::{self, TopBottomPanel},
     EguiContext,
