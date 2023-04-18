@@ -3,12 +3,12 @@ use bevy::{
     time::Time,
 };
 
-use crate::economy::components::CommodityType;
+use crate::{common::marker_components::IsCompany, economy::components::CommodityType};
 
 use super::{
     components::{
-        CommodityPricing, CommodityStorage, IsCompany, OnPlanet, OwnedFactories, Population,
-        Production, Wealth,
+        CommodityPricing, CommodityStorage, OnPlanet, OwnedFactories, Population, Production,
+        Wealth,
     },
     market::{Market, Transaction},
 };
@@ -64,12 +64,8 @@ pub fn company_simulate(
                         units,
                         unit_price: producable.cost_per_unit,
                     };
-                    let result = market.produce_for_market(
-                        &transaction,
-                        storage.as_mut(),
-                        wealth.as_mut(),
-                        &time,
-                    );
+                    let result =
+                        market.produce(&transaction, storage.as_mut(), wealth.as_mut(), &time);
                     if let Err(msg) = result {
                         warn!("produce for market failed: {:?}", msg);
                     }
@@ -93,7 +89,7 @@ pub fn population_consumption(
 ) {
     for (entity, pop, mut market) in q_planet_pop.iter_mut() {
         for (commodity_idx, consumption_rate) in pop.consumption.iter().enumerate() {
-            if *consumption_rate >= 0.0 {
+            if *consumption_rate > 0.0 {
                 match market.posit_purchase(
                     commodity_idx.into(),
                     *consumption_rate,
@@ -104,7 +100,7 @@ pub fn population_consumption(
                             let mut param_set = p_company.p1();
                             let (mut storage, mut wealth) =
                                 param_set.get_mut(quote.seller).unwrap();
-                            if let Err(msg) = market.consume_from_market(
+                            if let Err(msg) = market.consume(
                                 &quote.to_transaction(entity),
                                 &mut storage,
                                 &mut wealth,

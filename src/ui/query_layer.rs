@@ -1,39 +1,57 @@
-use crate::economy::{
-    components::{CommodityStorage, IsCompany, OnPlanet, OwnedFactories, Population, Wealth},
-    market::Market,
+use crate::{
+    common::marker_components::{IsCompany, IsPlanet},
+    economy::{
+        components::{CommodityStorage, OnPlanet, OwnedFactories, Population, Wealth},
+        market::Market,
+    },
 };
 
-use super::render_structs::{RenderCompany, RenderPlanet};
-use bevy::prelude::{Entity, World};
+use super::render_structs::{RenderCompany, RenderPlanet, RenderSystemInfo};
+use bevy::prelude::{Entity, With, World};
 
 pub fn get_planet_companies(planet: Entity, world: &mut World) -> Vec<RenderCompany> {
     world
         .query::<(
-            Entity,
-            &IsCompany,
-            &Wealth,
-            &CommodityStorage,
-            &OwnedFactories,
-            &OnPlanet,
+            (
+                Entity,
+                &Wealth,
+                &CommodityStorage,
+                &OwnedFactories,
+                &OnPlanet,
+            ),
+            With<IsCompany>,
         )>()
         .iter(world)
-        .filter(|result| result.5.value == planet)
+        .map(|result| result.0)
+        .filter(|result| result.4.value == planet)
         .map(|result| RenderCompany {
             entity: result.0,
-            wealth: result.2.value,
-            commodity_storage: result.3.storage,
+            wealth: result.1.value,
+            commodity_storage: result.2.storage,
         })
         .collect()
 }
 
-pub fn get_system_planets(world: &mut World) -> Vec<RenderPlanet> {
-    world
-        .query::<(Entity, &Population, &Market)>()
-        .iter(world)
-        .map(|result| RenderPlanet {
-            entity: result.0,
-            population: result.1,
-            market: result.2,
-        })
-        .collect()
+pub fn get_system_info(world: &mut World) -> RenderSystemInfo {
+    RenderSystemInfo {
+        planets: world
+            .query::<(Entity, With<IsPlanet>)>()
+            .iter(world)
+            .map(|res| res.0)
+            .collect(),
+    }
+}
+
+pub fn get_planet(world: &mut World, planet_id: Entity) -> RenderPlanet {
+    let (market, population) = world
+        .query::<((&Market, &Population), With<IsPlanet>)>()
+        .get(world, planet_id)
+        .unwrap()
+        .0;
+
+    RenderPlanet {
+        entity: planet_id,
+        market: market.clone(),
+        population: *population,
+    }
 }

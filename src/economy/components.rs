@@ -6,6 +6,8 @@ use std::fmt::Debug;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use crate::common::marker_components::{IsCompany, IsPlanet};
+
 use super::market::Market;
 
 pub const COMMODITY_COUNT: usize = 3;
@@ -58,7 +60,7 @@ impl From<usize> for CommodityType {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Production {
     pub commodity_type: CommodityType,
     pub cost_per_unit: f32,
@@ -113,22 +115,22 @@ impl CommodityStorage {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Wealth {
     pub value: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Population {
     pub consumption: CommodityArr<f32>,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct OnPlanet {
     pub value: Entity,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct OwnedFactories {
     pub value: Vec<Entity>,
 }
@@ -140,9 +142,6 @@ impl Default for OwnedFactories {
         }
     }
 }
-
-#[derive(Component)]
-pub struct IsCompany {}
 
 #[derive(Bundle)]
 pub struct ManufactoryBundle {
@@ -179,4 +178,5 @@ impl CompanyBundle {
 pub struct PlanetBundle {
     pub market: Market,
     pub population: Population,
+    pub is: IsPlanet,
 }

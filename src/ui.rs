@@ -6,11 +6,14 @@ use bevy::{
     input::keyboard::KeyboardInput,
     prelude::{Entity, EventReader, KeyCode, ResMut, Resource, World},
 };
-use bevy_egui::{egui, EguiContext};
+use bevy_egui::{
+    egui::{self, TopBottomPanel},
+    EguiContext,
+};
 
 use self::planet_view::{planet_view, PlanetViewState};
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 enum View {
     Ship,
     #[default]
@@ -36,24 +39,6 @@ impl UIState {
     }
 }
 
-pub fn ui_controls(mut key_evr: EventReader<KeyboardInput>, mut ui_state: ResMut<UIState>) {
-    use bevy::input::ButtonState;
-
-    for ev in key_evr.iter() {
-        match ev.state {
-            ButtonState::Pressed => {
-                if let Some(k) = ev.key_code {
-                    match k {
-                        KeyCode::Tab => ui_state.next_view(),
-                        _ => (),
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
 pub fn render_ui(world: &mut World) {
     let (egui_entity, _ctx) = world
         .query::<(Entity, &EguiContext)>()
@@ -61,27 +46,36 @@ pub fn render_ui(world: &mut World) {
         .unwrap();
     let mut egui_ctx = world.entity_mut(egui_entity).take::<EguiContext>().unwrap();
 
-    egui::CentralPanel::default().show(egui_ctx.get_mut(), |ui| {
-        let ui_state = world.get_resource::<UIState>().unwrap();
-        match ui_state.view {
-            View::Ship => {
-                ui.heading("Ship View");
-                ui.label("ship");
-            }
-            View::Planet => {
-                ui.heading("Planet View");
-                planet_view(ui, world);
-            }
-            View::System => {
-                ui.heading("System View");
-                ui.label("systems");
-            }
-            View::Galaxy => {
-                ui.heading("Galaxy View");
-                ui.label("wow");
-            }
+    let mut ui_state = world.remove_resource::<UIState>().unwrap();
+
+    TopBottomPanel::top("view_selector").show(egui_ctx.get_mut(), |ui| {
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut ui_state.view, View::System, "System");
+            ui.selectable_value(&mut ui_state.view, View::Ship, "Ship");
+            ui.selectable_value(&mut ui_state.view, View::Planet, "Planets");
+            ui.selectable_value(&mut ui_state.view, View::Galaxy, "Galaxy");
+        })
+    });
+
+    egui::CentralPanel::default().show(egui_ctx.get_mut(), |ui| match ui_state.view {
+        View::Ship => {
+            ui.heading("Ship View");
+            ui.label("ship");
+        }
+        View::Planet => {
+            ui.heading("Planet View");
+            planet_view(ui, world, &mut ui_state.planet_view_state);
+        }
+        View::System => {
+            ui.heading("System View");
+            ui.label("systems");
+        }
+        View::Galaxy => {
+            ui.heading("Galaxy View");
+            ui.label("wow");
         }
     });
 
+    world.insert_resource(ui_state);
     world.entity_mut(egui_entity).insert(egui_ctx);
 }

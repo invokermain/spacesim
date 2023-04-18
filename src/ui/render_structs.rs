@@ -12,8 +12,12 @@ pub struct RenderCompany {
     pub commodity_storage: CommodityArr<f32>,
 }
 
-pub struct RenderPlanet<'a> {
+pub struct RenderSystemInfo {
+    pub planets: Vec<Entity>,
+}
+
+pub struct RenderPlanet {
     pub entity: Entity,
-    pub population: &'a Population,
-    pub market: &'a Market,
+    pub population: Population,
+    pub market: Market,
 }
