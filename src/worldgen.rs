@@ -22,7 +22,6 @@ pub fn create_world(mut commands: Commands) {
                 value: f32::INFINITY,
             },
             IsPlanet {},
-            IsPlanet {},
         ))
         .id();
 
