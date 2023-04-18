@@ -4,12 +4,14 @@ use super::components::{
     CommodityArr, CommodityPricing, CommodityStorage, CommodityType, Wealth, COMMODITY_COUNT,
 };
 use bevy::{
-    prelude::{info, Component, Entity, Query, Res},
+    prelude::{Component, Entity, Query, Res},
     time::Time,
 };
 
+const MAX_HISTORY_LENGTH: usize = 256;
+
 // COMPONENT
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Market {
     // The market serves as an abstraction over the various economic components of a
     // Planet. It is responsible for tracking macroeconomic values such as demand.
@@ -20,6 +22,8 @@ pub struct Market {
     pub total_supply: CommodityArr<f32>,
     pub market_members: Vec<Entity>,
     pub transaction_history: VecDeque<(f32, Transaction)>,
+    pub production_history: VecDeque<(f32, Transaction)>,
+    pub consumption_history: VecDeque<(f32, Transaction)>,
 }
 
 impl Default for Market {
@@ -35,6 +39,8 @@ impl Default for Market {
             total_supply: [0.0; COMMODITY_COUNT],
             market_members: Vec::new(),
             transaction_history: VecDeque::new(),
+            production_history: VecDeque::new(),
+            consumption_history: VecDeque::new(),
             demand_price_modifier: [1.0; COMMODITY_COUNT],
         }
     }
@@ -116,7 +122,7 @@ impl Market {
     }
 
     // This assumes that the seller is in market, and the buyer is out of market.
-    pub fn buy_from_market(
+    pub fn buy(
         &mut self,
         transaction: &Transaction,
         buyer_storage: &mut CommodityStorage,
@@ -164,13 +170,17 @@ impl Market {
         self.transaction_history
             .push_front((time.elapsed_seconds(), transaction.clone()));
 
+        if self.transaction_history.len() > MAX_HISTORY_LENGTH {
+            self.transaction_history.pop_back();
+        }
+
         self.update_market_meta(transaction.commodity_type, transaction.units);
 
         Ok(())
     }
 
     // This assumes that the seller is in market, and the buyer is out of market.
-    pub fn sell_to_market(
+    pub fn sell(
         &mut self,
         transaction: &Transaction,
         buyer_storage: &mut CommodityStorage,
@@ -218,6 +228,10 @@ impl Market {
         self.transaction_history
             .push_front((time.elapsed_seconds(), transaction.clone()));
 
+        if self.transaction_history.len() > MAX_HISTORY_LENGTH {
+            self.transaction_history.pop_back();
+        }
+
         self.update_market_meta(transaction.commodity_type, -transaction.units);
 
         Ok(())
@@ -225,7 +239,7 @@ impl Market {
 
     /// This makes a transaction that does not mutate the 'seller'. e.g. the seller
     /// is considered to be an infinite or out-of-market resource.
-    pub fn produce_for_market(
+    pub fn produce(
         &mut self,
         transaction: &Transaction,
         buyer_storage: &mut CommodityStorage,
@@ -246,10 +260,12 @@ impl Market {
         buyer_storage.store(transaction.commodity_type, transaction.units);
         buyer_wealth.value -= transaction_total_cost;
 
-        self.transaction_history
+        self.production_history
             .push_front((time.elapsed_seconds(), transaction.clone()));
 
-        info!("made producing transaction: {:?}", transaction);
+        if self.production_history.len() > MAX_HISTORY_LENGTH {
+            self.production_history.pop_back();
+        }
 
         self.update_market_meta(transaction.commodity_type, transaction.units);
 
@@ -258,7 +274,7 @@ impl Market {
 
     /// This makes a transaction that does not mutate the 'buyer'. e.g. the buyer
     /// is considered to be an infinite or out-of-market resource.
-    pub fn consume_from_market(
+    pub fn consume(
         &mut self,
         transaction: &Transaction,
         seller_storage: &mut CommodityStorage,
@@ -279,10 +295,12 @@ impl Market {
         seller_storage.remove(transaction.commodity_type, transaction.units);
         seller_wealth.value += transaction_total_cost;
 
-        self.transaction_history
+        self.consumption_history
             .push_front((time.elapsed_seconds(), transaction.clone()));
 
-        info!("made consuming transaction: {:?}", transaction);
+        if self.consumption_history.len() > MAX_HISTORY_LENGTH {
+            self.consumption_history.pop_back();
+        }
 
         self.update_market_meta(transaction.commodity_type, -transaction.units);
 
