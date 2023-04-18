@@ -16,6 +16,8 @@ use economy::systems::{company_simulate, population_consumption};
 use ui::{render_ui, UIState};
 use worldgen::create_world;
 
+const SIMULATION_TICK_RATE: f32 = 0.25;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -29,7 +31,11 @@ fn main() {
         .init_resource::<UIState>()
         .add_startup_system(create_world)
         .add_system(render_ui)
-        .add_system(company_simulate.run_if(on_timer(Duration::from_secs_f32(0.5))))
-        .add_system(population_consumption.run_if(on_timer(Duration::from_secs_f32(0.5))))
+        .add_system(
+            company_simulate.run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE))),
+        )
+        .add_system(
+            population_consumption.run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE))),
+        )
         .run();
 }

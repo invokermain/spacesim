@@ -1,13 +1,12 @@
 use bevy::prelude::{Entity, World};
-use bevy_egui::egui::{
-    self,
-    plot::{BarChart, Line, Plot, PlotPoints},
-    Ui,
-};
+use bevy_egui::egui::{self, Ui};
 use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
-use crate::economy::{components::CommodityType, market::Market};
+use crate::economy::{
+    components::{CommodityArr, CommodityType},
+    market::Market,
+};
 
 use super::{
     query_layer::{get_planet, get_planet_companies, get_system_info},
@@ -64,38 +63,42 @@ pub(crate) fn render_planet(ui: &mut Ui, world: &mut World, planet: &RenderPlane
     for company in get_planet_companies(planet.entity, world).iter() {
         ui.label(format!("Company {:?}", company.entity));
         ui.label(format!("wealth: {:.1}", company.wealth));
-        ui.label(format!("storage: {:?}", company.commodity_storage));
+        render_commodity_storage(ui, &company.commodity_storage);
     }
 }
 
-pub(crate) fn render_market(ui: &mut Ui, market: &Market) {
-    ui.columns(3, |columns| {
-        columns.iter_mut().for_each(|col| col.set_max_height(100.0));
+pub(crate) fn render_commodity_storage(ui: &mut Ui, commodity_storage: &CommodityArr<f32>) {
+    let id = ui.next_auto_id();
+    ui.skip_ahead_auto_ids(1);
 
-        render_market_table(&mut columns[0], market);
+    ui.push_id(id, |ui| {
+        let table = TableBuilder::new(ui)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .columns(Column::auto(), CommodityType::iter().len())
+            .min_scrolled_height(0.0);
 
-        let plot = Plot::new("market_production_plot");
-        plot.show(&mut columns[1], |plot_ui| {
-            plot_ui.line(Line::new(
-                market
-                    .production_history
-                    .iter()
-                    .map(|f| [f.0 as f64, f.1.units as f64])
-                    .collect::<PlotPoints>(),
-            ));
-        });
-
-        let plot = Plot::new("market_consumption_plot");
-        plot.show(&mut columns[2], |plot_ui| {
-            plot_ui.bar_chart(BarChart::new(
-                market
-                    .consumption_history
-                    .iter()
-                    .map(|f| [f.0 as f64, f.1.units as f64])
-                    .collect::<PlotPoints>(),
-            ));
-        });
+        table
+            .header(20.0, |mut header| {
+                CommodityType::iter().for_each(|commodity_type| {
+                    header.col(|ui| {
+                        ui.strong(format!("{:?}", commodity_type));
+                    });
+                });
+            })
+            .body(|mut body| {
+                body.row(20.0, |mut row| {
+                    for commodity_type in CommodityType::iter() {
+                        row.col(|ui| {
+                            ui.label(format!("{:.2}", commodity_storage[commodity_type as usize]));
+                        });
+                    }
+                });
+            })
     });
+}
+
+pub(crate) fn render_market(ui: &mut Ui, market: &Market) {
+    render_market_table(ui, market);
 
     market
         .transaction_history
