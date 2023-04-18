@@ -1,28 +1,19 @@
-mod layer;
+mod planet_view;
+mod query_layer;
 mod render_structs;
 
 use bevy::{
     input::keyboard::KeyboardInput,
     prelude::{Entity, EventReader, KeyCode, ResMut, Resource, World},
 };
-use bevy_egui::{
-    egui::{self, Ui},
-    EguiContext,
-};
-use egui_extras::{Column, TableBuilder};
-use strum::IntoEnumIterator;
+use bevy_egui::{egui, EguiContext};
 
-use crate::economy::{
-    components::{CommodityType, Population},
-    market::Market,
-};
-
-use self::layer::get_planet_companies;
+use self::planet_view::{planet_view, PlanetViewState};
 
 #[derive(Default)]
 enum View {
-    #[default]
     Ship,
+    #[default]
     Planet,
     System,
     Galaxy,
@@ -31,6 +22,7 @@ enum View {
 #[derive(Resource, Default)]
 pub struct UIState {
     view: View,
+    planet_view_state: PlanetViewState,
 }
 
 impl UIState {
@@ -78,7 +70,7 @@ pub fn render_ui(world: &mut World) {
             }
             View::Planet => {
                 ui.heading("Planet View");
-                render_view_for_planet(world, ui);
+                planet_view(ui, world);
             }
             View::System => {
                 ui.heading("System View");
@@ -92,74 +84,4 @@ pub fn render_ui(world: &mut World) {
     });
 
     world.entity_mut(egui_entity).insert(egui_ctx);
-}
-
-fn render_view_for_planet(world: &mut World, ui: &mut Ui) {
-    let (planet_id, _population, market) = world
-        .query::<(Entity, &Population, &Market)>()
-        .get_single(&world)
-        .unwrap();
-
-    ui.strong(format!("Planet {:?}", planet_id));
-    ui.separator();
-    ui.strong("MARKET");
-
-    let table = TableBuilder::new(ui)
-        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        .columns(Column::auto(), 3)
-        .min_scrolled_height(0.0);
-
-    table
-        .header(20.0, |mut header| {
-            header.col(|ui| {
-                ui.strong("Commodity");
-            });
-            header.col(|ui| {
-                ui.strong("Supply");
-            });
-            header.col(|ui| {
-                ui.strong("Demand");
-            });
-        })
-        .body(|mut body| {
-            for commodity_type in CommodityType::iter() {
-                body.row(20.0, |mut row| {
-                    row.col(|ui| {
-                        ui.label(format!("{:?}", commodity_type));
-                    });
-                    row.col(|ui| {
-                        ui.label(format!(
-                            "{:.1}",
-                            market.total_supply[commodity_type as usize]
-                        ));
-                    });
-                    // row.col(|ui| {
-                    //     ui.label(format!("{:.1}", market.de[commodity_type as usize]));
-                    // });
-                });
-            }
-        });
-
-    ui.label(format!("supply_pressure: {:?}", market.supply_pressure));
-    ui.label(format!("demand_pressure: {:?}", market.demand_pressure));
-    ui.label(format!(
-        "price_modifier: {:?}",
-        market.demand_price_modifier
-    ));
-
-    market
-        .transaction_history
-        .iter()
-        .take(10)
-        .for_each(|transaction| {
-            ui.label(format!("{:.2} | {:?}", transaction.0, transaction.1));
-        });
-
-    ui.separator();
-
-    for company in get_planet_companies(planet_id, world).iter() {
-        ui.label(format!("Company {:?}", company.entity));
-        ui.label(format!("wealth: {:.1}", company.wealth));
-        ui.label(format!("storage: {:?}", company.commodity_storage));
-    }
 }
