@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::fmt::Debug;
-use strum::IntoEnumIterator;
+
 use strum_macros::EnumIter;
 
 pub const COMMODITY_COUNT: usize = 3;
@@ -11,22 +10,6 @@ pub enum CommodityType {
     Food,
     Water,
     Clothes,
-}
-
-pub fn make_commodity_arr_from_iter<T: Default + Debug + Clone>(
-    iter: impl IntoIterator<Item = (CommodityType, T)>,
-) -> CommodityArr<T> {
-    let hash_map: HashMap<CommodityType, T> = HashMap::from_iter(iter);
-    CommodityType::iter()
-        .map(|commodity_type| {
-            hash_map
-                .get(&commodity_type)
-                .unwrap_or(&T::default())
-                .clone()
-        })
-        .collect::<Vec<T>>()
-        .try_into()
-        .unwrap()
 }
 
 impl TryFrom<i32> for CommodityType {

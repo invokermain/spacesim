@@ -1,20 +1,16 @@
-use bevy::{
-    prelude::{warn, Entity, Query, Res, With},
-    time::Time,
-};
+use bevy::prelude::{warn, Query, With};
 
 use crate::common::marker_components::IsCompany;
 
 use super::{
     components::{CommodityStorage, OnPlanet, OwnedFactories, Population, Production, Wealth},
-    market::{Market, Transaction},
+    market::Market,
     market_wq::MarketMemberMutQuery,
 };
 
 pub fn company_simulate(
     mut q_company: Query<
         (
-            Entity,
             &mut Wealth,
             &mut CommodityStorage,
             &OwnedFactories,
@@ -24,52 +20,38 @@ pub fn company_simulate(
     >,
     mut q_market: Query<&mut Market>,
     q_manufactory: Query<&Production>,
-    time: Res<Time>,
 ) {
-    for (company_entity, mut wealth, mut storage, owned_factories, on_planet) in
-        q_company.iter_mut()
-    {
+    for (mut wealth, mut storage, owned_factories, on_planet) in q_company.iter_mut() {
         let mut market = q_market
             .get_component_mut::<Market>(on_planet.value)
             .unwrap();
         if storage.available_capacity > 0.0 {
-            // get everything that we can produce
-            let all_producable = owned_factories
-                .value
-                .iter()
-                .map(|&entity| {
-                    (
-                        entity,
-                        q_manufactory.get_component::<Production>(entity).unwrap(),
-                    )
-                })
-                .collect::<Vec<(Entity, &Production)>>();
-
             // TODO: calculate expected profit for each commodity
             //       for each commodity get market price - manufacture cost,
             //       then order by expected profit.
 
-            for (mantufactory_entity, producable) in all_producable {
+            for manufactory_entity in &owned_factories.value {
+                let producable = q_manufactory
+                    .get_component::<Production>(*manufactory_entity)
+                    .unwrap();
                 let units = f32::min(producable.output_per_tick, storage.available_capacity);
                 let cost = units * producable.cost_per_unit;
 
                 // we can produce something
                 if wealth.value > cost {
-                    let transaction = Transaction {
-                        buyer: company_entity,
-                        seller: mantufactory_entity,
-                        commodity_type: producable.commodity_type,
+                    let result = market.produce(
+                        producable.commodity_type,
                         units,
-                        unit_price: producable.cost_per_unit,
-                    };
-                    let result =
-                        market.produce(&transaction, storage.as_mut(), wealth.as_mut(), &time);
+                        producable.cost_per_unit,
+                        storage.as_mut(),
+                        wealth.as_mut(),
+                    );
                     if let Err(msg) = result {
                         warn!("produce for market failed: {:?}", msg);
                     }
                 }
 
-                if storage.available_capacity == 0.0 {
+                if storage.available_capacity <= 0.01 {
                     break;
                 }
             }

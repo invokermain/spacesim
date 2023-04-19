@@ -6,7 +6,7 @@ use super::{
     market_wq::MarketMemberMutQuery,
 };
 use bevy::{
-    prelude::{Component, Entity, Query, Res},
+    prelude::{info, Component, Entity, Query, Res},
     time::Time,
 };
 use strum::IntoEnumIterator;
@@ -281,35 +281,28 @@ impl Market {
     /// is considered to be an infinite or out-of-market resource.
     pub fn produce(
         &mut self,
-        transaction: &Transaction,
+        commodity_type: CommodityType,
+        units: f32,
+        unit_price: f32,
         buyer_storage: &mut CommodityStorage,
         buyer_wealth: &mut Wealth,
-        time: &Res<Time>,
     ) -> Result<(), String> {
-        let Transaction {
-            buyer: _,
-            seller: _,
-            commodity_type,
-            units,
-            unit_price,
-        } = transaction;
-
-        self.tick_total_supply[*commodity_type as usize] += units;
+        self.tick_total_supply[commodity_type as usize] += units;
         let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !buyer_storage.can_store(*units) {
+        if !buyer_storage.can_store(units) {
             return Err(format!(
                 "Buyer does not have {:.2} units of free space available",
-                transaction.units
+                units
             )
             .into());
         }
 
-        buyer_storage.store(*commodity_type, *units);
+        buyer_storage.store(commodity_type, units);
         buyer_wealth.value -= transaction_total_cost;
 
-        self.total_supply[*commodity_type as usize] += units;
+        self.total_supply[commodity_type as usize] += units;
 
         Ok(())
     }
@@ -325,6 +318,7 @@ impl Market {
 
                 let tick_total_supply =
                     self.tick_total_supply[commodity_idx] / MARKET_FORCES_HISTORY_LENGTH as f32;
+
                 self.supply_history[commodity_idx].push_front(tick_total_supply);
                 self.supply_pressure[commodity_idx] += tick_total_supply;
             }
@@ -336,9 +330,13 @@ impl Market {
 
                 let tick_total_demand =
                     self.tick_total_demand[commodity_idx] / MARKET_FORCES_HISTORY_LENGTH as f32;
+
                 self.demand_history[commodity_idx].push_front(tick_total_demand);
                 self.demand_pressure[commodity_idx] += tick_total_demand;
             }
+
+            self.tick_total_supply = [0.0; COMMODITY_COUNT];
+            self.tick_total_demand = [0.0; COMMODITY_COUNT];
 
             self.demand_price_modifier[commodity_idx] =
                 self.calculate_demand_modifier(commodity_type);
