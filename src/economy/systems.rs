@@ -1,16 +1,14 @@
 use bevy::{
-    prelude::{warn, Entity, ParamSet, Query, Res, With},
+    prelude::{warn, Entity, Query, Res, With},
     time::Time,
 };
 
-use crate::{common::marker_components::IsCompany, economy::components::CommodityType};
+use crate::common::marker_components::IsCompany;
 
 use super::{
-    components::{
-        CommodityPricing, CommodityStorage, OnPlanet, OwnedFactories, Population, Production,
-        Wealth,
-    },
+    components::{CommodityStorage, OnPlanet, OwnedFactories, Population, Production, Wealth},
     market::{Market, Transaction},
+    market_wq::MarketMemberMutQuery,
 };
 
 pub fn company_simulate(
@@ -80,42 +78,24 @@ pub fn company_simulate(
 }
 
 pub fn population_consumption(
-    mut q_planet_pop: Query<(Entity, &Population, &mut Market)>,
-    mut p_company: ParamSet<(
-        Query<&CommodityStorage, &CommodityPricing>,
-        Query<(&mut CommodityStorage, &mut Wealth)>,
-    )>,
-    r_time: Res<Time>,
+    mut q_planet_pop: Query<(&Population, &mut Market)>,
+    mut q_market_member: Query<MarketMemberMutQuery>,
 ) {
-    for (entity, pop, mut market) in q_planet_pop.iter_mut() {
+    for (pop, mut market) in q_planet_pop.iter_mut() {
         for (commodity_idx, consumption_rate) in pop.consumption.iter().enumerate() {
             if *consumption_rate > 0.0 {
-                match market.posit_purchase(
+                market.consume(
                     commodity_idx.into(),
                     *consumption_rate,
-                    &p_company.p0(),
-                ) {
-                    Some(quote) => {
-                        for quote in quote.quoted_transactions {
-                            let mut param_set = p_company.p1();
-                            let (mut storage, mut wealth) =
-                                param_set.get_mut(quote.seller).unwrap();
-                            if let Err(msg) = market.consume(
-                                &quote.to_transaction(entity),
-                                &mut storage,
-                                &mut wealth,
-                                &r_time,
-                            ) {
-                                warn!("Error making transaction: '{}'", msg);
-                            };
-                        }
-                    }
-                    None => warn!(
-                        "Market cannot meet consumption needs for '{:?}'",
-                        CommodityType::from(commodity_idx)
-                    ),
-                }
+                    &mut q_market_member,
+                );
             }
         }
+    }
+}
+
+pub fn update_market_statistics(mut q_market: Query<&mut Market>) {
+    for mut market in q_market.iter_mut() {
+        market.aggregate_tick_statistics();
     }
 }

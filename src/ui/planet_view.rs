@@ -4,7 +4,7 @@ use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
 use crate::economy::{
-    components::{CommodityArr, CommodityType},
+    commodity_type::{CommodityArr, CommodityType},
     market::Market,
 };
 
