@@ -1,14 +1,18 @@
 use std::collections::VecDeque;
 
-use super::components::{
-    CommodityArr, CommodityPricing, CommodityStorage, CommodityType, Wealth, COMMODITY_COUNT,
+use super::{
+    commodity_type::{CommodityArr, CommodityType, COMMODITY_COUNT},
+    components::{CommodityStorage, Wealth},
+    market_wq::MarketMemberMutQuery,
 };
 use bevy::{
-    prelude::{Component, Entity, Query, Res},
+    prelude::{info, Component, Entity, Query, Res},
     time::Time,
 };
+use strum::IntoEnumIterator;
 
-const MAX_HISTORY_LENGTH: usize = 256;
+const TRANSACTION_HISTORY_LENGTH: usize = 256;
+const MARKET_FORCES_HISTORY_LENGTH: usize = 32;
 
 // COMPONENT
 #[derive(Component, Clone)]
@@ -18,12 +22,16 @@ pub struct Market {
     pub supply_pressure: CommodityArr<f32>,
     pub demand_pressure: CommodityArr<f32>,
     pub demand_price_modifier: CommodityArr<f32>,
-    pub supply_history: CommodityArr<VecDeque<f32>>,
     pub total_supply: CommodityArr<f32>,
     pub market_members: Vec<Entity>,
+
     pub transaction_history: VecDeque<(f32, Transaction)>,
-    pub production_history: VecDeque<(f32, Transaction)>,
-    pub consumption_history: VecDeque<(f32, Transaction)>,
+    pub supply_history: CommodityArr<VecDeque<f32>>,
+    pub demand_history: CommodityArr<VecDeque<f32>>,
+
+    // new
+    pub tick_total_demand: CommodityArr<f32>,
+    pub tick_total_supply: CommodityArr<f32>,
 }
 
 impl Default for Market {
@@ -33,92 +41,103 @@ impl Default for Market {
             supply_pressure: [0.0; COMMODITY_COUNT],
             total_supply: [0.0; COMMODITY_COUNT],
             market_members: Vec::new(),
-            supply_history: [
-                VecDeque::from_iter(vec![0.0; MAX_HISTORY_LENGTH]),
-                VecDeque::from_iter(vec![0.0; MAX_HISTORY_LENGTH]),
-                VecDeque::from_iter(vec![0.0; MAX_HISTORY_LENGTH]),
-            ],
-            transaction_history: VecDeque::with_capacity(MAX_HISTORY_LENGTH),
-            production_history: VecDeque::with_capacity(MAX_HISTORY_LENGTH),
-            consumption_history: VecDeque::with_capacity(MAX_HISTORY_LENGTH),
+            transaction_history: VecDeque::with_capacity(TRANSACTION_HISTORY_LENGTH),
             demand_price_modifier: [1.0; COMMODITY_COUNT],
+            tick_total_demand: [0.0; COMMODITY_COUNT],
+            tick_total_supply: [0.0; COMMODITY_COUNT],
+            supply_history: [
+                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+            ],
+            demand_history: [
+                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+            ],
         }
     }
 }
 
 impl Market {
     fn calculate_demand_modifier(&self, commodity_type: CommodityType) -> f32 {
-        let supply_pressure = self.supply_pressure[commodity_type as usize] / 256.0;
-        let demand_pressure = self.demand_pressure[commodity_type as usize] / 256.0;
+        let supply_pressure = self.supply_pressure[commodity_type as usize];
+        let demand_pressure = self.demand_pressure[commodity_type as usize];
+        let delta = supply_pressure - demand_pressure;
+        let supply = self.total_supply[commodity_type as usize];
 
-        if demand_pressure > supply_pressure {
-            // markup up to 100x depending as stock dwindles and demand pressure increases.
-            // mod roughly more than 100.0 then no markup
-            // as mod approaches zero then markup approaches 100
-            let modifier =
-                self.total_supply[commodity_type as usize] / (demand_pressure - supply_pressure);
-            return f32::max(100.0 - 0.28 * modifier.powf(0.28), 1.0);
-        } else if supply_pressure > demand_pressure {
-            // discount up to 0.75x as stock grows and supply pressure grows
-            // mod less than 50 then no discount
-            // mod greater than 150 maximum discount
-            let modifier =
-                self.total_supply[commodity_type as usize] * supply_pressure / demand_pressure;
-            return ((450.0 - modifier) / 400.0).clamp(0.75, 1.0);
-        } else {
-            return 1.0;
-        }
+        // see https://docs.google.com/spreadsheets/d/1_bHLiL4MsosQ6BOG_aq6LiXr3Y9cbwMy-c6p3wxGmtQ/edit#gid=0
+
+        // price increases as supply decreases, the effect is softened with positive supply
+        let supply_modifier = (50.0 / (supply + 1.0 + (5.0 * delta).max(0.0))).max(1.0);
+
+        let delta_modifier = 2.0 / (1.0 + (0.5 * delta).exp());
+
+        supply_modifier * delta_modifier
     }
 
-    pub fn posit_purchase(
-        &self,
+    pub fn consume(
+        &mut self,
         commodity_type: CommodityType,
         units: f32,
-        query: &Query<&CommodityStorage, &CommodityPricing>,
-    ) -> Option<MarketPurchaseQuote> {
-        if self.total_supply[commodity_type as usize] == 0.0 || self.market_members.len() == 0 {
-            return None;
+        query: &mut Query<MarketMemberMutQuery>,
+    ) -> MarketConsumeResult {
+        self.tick_total_demand[commodity_type as usize] += units;
+
+        if self.total_supply[commodity_type as usize] <= 0.001 || self.market_members.len() == 0 {
+            return MarketConsumeResult {
+                commodity_type,
+                requested_units: units,
+                fulfilled_units: 0.0,
+                unit_cost: 0.0,
+                total_cost: 0.0,
+            };
         };
+
         let mut unfulfilled_units = units;
         let mut fulfilled_units = 0.0;
         let mut total_cost = 0.0;
-        let mut quoted_transactions = Vec::new();
 
-        for member in &self.market_members {
+        for member_id in &self.market_members {
             // Currently we determine price via a global market price. However in future
             // we could delegate price decisions to the market member, e.g. base on
             // opinion of player.
-            let member_storage = query.get_component::<CommodityStorage>(*member).unwrap();
-            let commodity_pricing = query.get_component::<CommodityPricing>(*member).unwrap();
-            let in_stock = member_storage.storage[commodity_type as usize];
+            let mut market_member = query.get_mut(*member_id).unwrap();
+
+            let in_stock = market_member.storage.storage[commodity_type as usize];
+
+            if in_stock <= 0.001 {
+                continue;
+            }
+
             let fulfillable_units = f32::min(in_stock, unfulfilled_units);
             let unit_price = self.demand_price_modifier[commodity_type as usize]
-                * commodity_pricing.value[commodity_type as usize];
+                * market_member.pricing.value[commodity_type as usize];
+            let price = unit_price * fulfillable_units;
 
-            let transaction = PurchaseQuote {
-                seller: member.clone(),
-                commodity_type,
-                units: fulfillable_units,
-                unit_price,
-            };
-
-            quoted_transactions.push(transaction);
+            market_member.wealth.value += price;
+            market_member
+                .storage
+                .remove(commodity_type, fulfillable_units);
 
             total_cost += unit_price * fulfillable_units;
             fulfilled_units += fulfillable_units;
             unfulfilled_units -= unfulfilled_units;
 
-            if unfulfilled_units == 0.0 {
+            if unfulfilled_units <= 0.001 {
                 break;
             }
         }
 
-        Some(MarketPurchaseQuote {
+        self.total_supply[commodity_type as usize] -= units;
+
+        MarketConsumeResult {
             commodity_type,
-            units: fulfilled_units,
+            requested_units: units,
+            fulfilled_units,
             unit_cost: total_cost / fulfilled_units,
-            quoted_transactions,
-        })
+            total_cost,
+        }
     }
 
     // This assumes that the seller is in market, and the buyer is out of market.
@@ -131,26 +150,33 @@ impl Market {
         seller_wealth: &mut Wealth,
         time: &Res<Time>,
     ) -> Result<(), String> {
-        let transaction_total_cost = transaction.unit_price * transaction.units;
+        let Transaction {
+            buyer,
+            seller,
+            commodity_type,
+            units,
+            unit_price,
+        } = transaction;
+        let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !self.market_members.contains(&transaction.buyer) {
+        if !self.market_members.contains(buyer) {
             return Err("Buyer is not a member of this market".into());
         }
-        if self.market_members.contains(&transaction.seller) {
+        if self.market_members.contains(seller) {
             return Err("Seller is a member of this market".into());
         }
-        if !seller_storage.can_remove(transaction.commodity_type, transaction.units) {
+        if !seller_storage.can_remove(*commodity_type, *units) {
             return Err(format!(
                 "Seller does not have {:.2} units of {:?} available",
-                transaction.units, transaction.commodity_type
+                units, commodity_type
             )
             .into());
         }
-        if !buyer_storage.can_store(transaction.units) {
+        if !buyer_storage.can_store(*units) {
             return Err(format!(
                 "Buyer does not have room to store {:.2} units of {:?} available",
-                transaction.units, transaction.commodity_type
+                units, commodity_type
             )
             .into());
         }
@@ -162,19 +188,19 @@ impl Market {
             .into());
         }
 
-        seller_storage.remove(transaction.commodity_type, transaction.units);
-        buyer_storage.store(transaction.commodity_type, transaction.units);
+        seller_storage.remove(*commodity_type, *units);
+        buyer_storage.store(*commodity_type, *units);
         buyer_wealth.value -= transaction_total_cost;
         seller_wealth.value += transaction_total_cost;
 
         self.transaction_history
             .push_front((time.elapsed_seconds(), transaction.clone()));
 
-        if self.transaction_history.len() > MAX_HISTORY_LENGTH {
+        if self.transaction_history.len() > TRANSACTION_HISTORY_LENGTH {
             self.transaction_history.pop_back();
         }
 
-        self.update_market_meta(transaction.commodity_type, transaction.units);
+        self.total_supply[*commodity_type as usize] += units;
 
         Ok(())
     }
@@ -189,26 +215,33 @@ impl Market {
         seller_wealth: &mut Wealth,
         time: &Res<Time>,
     ) -> Result<(), String> {
-        let transaction_total_cost = transaction.unit_price * transaction.units;
+        let Transaction {
+            buyer,
+            seller,
+            commodity_type,
+            units,
+            unit_price,
+        } = transaction;
+        let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !self.market_members.contains(&transaction.seller) {
+        if !self.market_members.contains(seller) {
             return Err("Seller is not a member of this market".into());
         }
-        if self.market_members.contains(&transaction.buyer) {
+        if self.market_members.contains(buyer) {
             return Err("Buyer is a member of this market".into());
         }
-        if !seller_storage.can_remove(transaction.commodity_type, transaction.units) {
+        if !seller_storage.can_remove(*commodity_type, *units) {
             return Err(format!(
                 "Seller does not have {:.2} units of {:?} available",
-                transaction.units, transaction.commodity_type
+                units, commodity_type
             )
             .into());
         }
-        if !buyer_storage.can_store(transaction.units) {
+        if !buyer_storage.can_store(*units) {
             return Err(format!(
                 "Buyer does not have room to store {:.2} units of {:?} available",
-                transaction.units, transaction.commodity_type
+                units, commodity_type
             )
             .into());
         }
@@ -220,19 +253,19 @@ impl Market {
             .into());
         }
 
-        seller_storage.remove(transaction.commodity_type, transaction.units);
-        buyer_storage.store(transaction.commodity_type, transaction.units);
+        seller_storage.remove(*commodity_type, *units);
+        buyer_storage.store(*commodity_type, *units);
         buyer_wealth.value -= transaction_total_cost;
         seller_wealth.value += transaction_total_cost;
 
         self.transaction_history
             .push_front((time.elapsed_seconds(), transaction.clone()));
 
-        if self.transaction_history.len() > MAX_HISTORY_LENGTH {
+        if self.transaction_history.len() > TRANSACTION_HISTORY_LENGTH {
             self.transaction_history.pop_back();
         }
 
-        self.update_market_meta(transaction.commodity_type, -transaction.units);
+        self.total_supply[*commodity_type as usize] -= units;
 
         Ok(())
     }
@@ -241,112 +274,65 @@ impl Market {
     /// is considered to be an infinite or out-of-market resource.
     pub fn produce(
         &mut self,
-        transaction: &Transaction,
+        commodity_type: CommodityType,
+        units: f32,
+        unit_price: f32,
         buyer_storage: &mut CommodityStorage,
         buyer_wealth: &mut Wealth,
-        time: &Res<Time>,
     ) -> Result<(), String> {
-        let transaction_total_cost = transaction.unit_price * transaction.units;
+        self.tick_total_supply[commodity_type as usize] += units;
+        let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !buyer_storage.can_store(transaction.units) {
+        if !buyer_storage.can_store(units) {
             return Err(format!(
                 "Buyer does not have {:.2} units of free space available",
-                transaction.units
+                units
             )
             .into());
         }
 
-        buyer_storage.store(transaction.commodity_type, transaction.units);
+        buyer_storage.store(commodity_type, units);
         buyer_wealth.value -= transaction_total_cost;
 
-        self.production_history
-            .push_front((time.elapsed_seconds(), transaction.clone()));
-
-        if self.production_history.len() > MAX_HISTORY_LENGTH {
-            self.production_history.pop_back();
-        }
-
-        self.update_market_meta(transaction.commodity_type, transaction.units);
-
-        Ok(())
-    }
-
-    /// This makes a transaction that does not mutate the 'buyer'. e.g. the buyer
-    /// is considered to be an infinite or out-of-market resource.
-    pub fn consume(
-        &mut self,
-        transaction: &Transaction,
-        seller_storage: &mut CommodityStorage,
-        seller_wealth: &mut Wealth,
-        time: &Res<Time>,
-    ) -> Result<(), String> {
-        let transaction_total_cost = transaction.unit_price * transaction.units;
-
-        // validate that the transaction can go ahead
-        if !seller_storage.can_remove(transaction.commodity_type, transaction.units) {
-            return Err(format!(
-                "Seller does not have {:.2} units of {:?} available",
-                transaction.units, transaction.commodity_type
-            )
-            .into());
-        }
-
-        seller_storage.remove(transaction.commodity_type, transaction.units);
-        seller_wealth.value += transaction_total_cost;
-
-        self.consumption_history
-            .push_front((time.elapsed_seconds(), transaction.clone()));
-
-        if self.consumption_history.len() > MAX_HISTORY_LENGTH {
-            self.consumption_history.pop_back();
-        }
-
-        self.update_market_meta(transaction.commodity_type, -transaction.units);
-
-        Ok(())
-    }
-
-    fn update_market_meta(&mut self, commodity_type: CommodityType, units: f32) {
         self.total_supply[commodity_type as usize] += units;
 
-        let last = self.supply_history[commodity_type as usize]
-            .pop_back()
-            .unwrap();
-        if last > 0.0 {
-            self.supply_pressure[commodity_type as usize] -= last;
-        } else if last < 0.0 {
-            self.demand_pressure[commodity_type as usize] += last;
-        }
-
-        self.supply_history[commodity_type as usize].push_front(units);
-        if units > 0.0 {
-            self.supply_pressure[commodity_type as usize] += units;
-        } else if units < 0.0 {
-            self.demand_pressure[commodity_type as usize] -= units;
-        }
-
-        self.demand_price_modifier[commodity_type as usize] =
-            self.calculate_demand_modifier(commodity_type);
+        Ok(())
     }
-}
 
-#[derive(Clone, Debug)]
-pub struct PurchaseQuote {
-    pub seller: Entity,
-    pub commodity_type: CommodityType,
-    pub units: f32,
-    pub unit_price: f32,
-}
+    pub fn aggregate_tick_statistics(&mut self) {
+        for commodity_type in CommodityType::iter() {
+            let commodity_idx = commodity_type as usize;
 
-impl PurchaseQuote {
-    pub fn to_transaction(&self, entity: Entity) -> Transaction {
-        Transaction {
-            buyer: entity.clone(),
-            seller: self.seller,
-            commodity_type: self.commodity_type,
-            units: self.units,
-            unit_price: self.unit_price,
+            // update supply metrics
+            {
+                let last = self.supply_history[commodity_idx].pop_back().unwrap();
+                self.supply_pressure[commodity_idx] -= last;
+
+                let tick_total_supply =
+                    self.tick_total_supply[commodity_idx] / MARKET_FORCES_HISTORY_LENGTH as f32;
+
+                self.supply_history[commodity_idx].push_front(tick_total_supply);
+                self.supply_pressure[commodity_idx] += tick_total_supply;
+            }
+
+            // update demand metrics
+            {
+                let last = self.demand_history[commodity_idx].pop_back().unwrap();
+                self.demand_pressure[commodity_idx] -= last;
+
+                let tick_total_demand =
+                    self.tick_total_demand[commodity_idx] / MARKET_FORCES_HISTORY_LENGTH as f32;
+
+                self.demand_history[commodity_idx].push_front(tick_total_demand);
+                self.demand_pressure[commodity_idx] += tick_total_demand;
+            }
+
+            self.tick_total_supply[commodity_idx] = 0.0;
+            self.tick_total_demand[commodity_idx] = 0.0;
+
+            self.demand_price_modifier[commodity_idx] =
+                self.calculate_demand_modifier(commodity_type);
         }
     }
 }
@@ -360,10 +346,11 @@ pub struct Transaction {
     pub unit_price: f32,
 }
 
-#[derive(Clone, Debug)]
-pub struct MarketPurchaseQuote {
+#[derive(Clone, Copy, Debug)]
+pub struct MarketConsumeResult {
     pub commodity_type: CommodityType,
-    pub units: f32,
+    pub requested_units: f32,
+    pub fulfilled_units: f32,
     pub unit_cost: f32,
-    pub quoted_transactions: Vec<PurchaseQuote>,
+    pub total_cost: f32,
 }

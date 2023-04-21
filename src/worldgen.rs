@@ -3,10 +3,8 @@ use bevy::prelude::Commands;
 use crate::{
     common::marker_components::IsPlanet,
     economy::{
-        components::{
-            CommodityType, CompanyBundle, ManufactoryBundle, OnPlanet, Population, Production,
-            Wealth,
-        },
+        commodity_type::CommodityType,
+        components::{CompanyBundle, ManufactoryBundle, OnPlanet, Population, Production, Wealth},
         market::Market,
     },
 };

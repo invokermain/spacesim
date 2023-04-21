@@ -4,7 +4,7 @@ use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
 use crate::economy::{
-    components::{CommodityArr, CommodityType},
+    commodity_type::{CommodityArr, CommodityType},
     market::Market,
 };
 
@@ -124,7 +124,7 @@ pub(crate) fn render_market_table(ui: &mut Ui, market: &Market) {
                 ui.strong("Supply");
             });
             header.col(|ui| {
-                ui.strong("Pressure");
+                ui.strong("Delta");
             });
             header.col(|ui| {
                 ui.strong("Price Modifier");
@@ -151,8 +151,8 @@ pub(crate) fn render_market_table(ui: &mut Ui, market: &Market) {
                     });
                     row.col(|ui| {
                         ui.label(format!(
-                            "{:.0}%",
-                            market.demand_price_modifier[commodity_type as usize] * 100.0
+                            "{:.2}",
+                            market.demand_price_modifier[commodity_type as usize] // * 100.0
                         ));
                     });
                 });

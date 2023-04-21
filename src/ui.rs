@@ -25,17 +25,6 @@ pub struct UIState {
     planet_view_state: PlanetViewState,
 }
 
-impl UIState {
-    pub fn next_view(&mut self) {
-        match self.view {
-            View::Ship => self.view = View::Planet,
-            View::Planet => self.view = View::System,
-            View::System => self.view = View::Galaxy,
-            View::Galaxy => self.view = View::Ship,
-        }
-    }
-}
-
 pub fn render_ui(world: &mut World) {
     let (egui_entity, _ctx) = world
         .query::<(Entity, &EguiContext)>()

@@ -1,9 +1,6 @@
 use bevy::prelude::Entity;
 
-use crate::economy::{
-    components::{CommodityArr, Population},
-    market::Market,
-};
+use crate::economy::{commodity_type::CommodityArr, components::Population, market::Market};
 
 #[derive(Debug)]
 pub struct RenderCompany {

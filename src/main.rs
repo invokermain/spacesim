@@ -3,20 +3,15 @@ mod economy;
 mod ui;
 mod worldgen;
 
-use std::time::Duration;
-
 use bevy::{
-    prelude::{default, App, IntoSystemConfig, PluginGroup},
-    time::common_conditions::on_timer,
+    prelude::{default, App, PluginGroup},
     window::{Window, WindowPlugin},
     DefaultPlugins,
 };
 use bevy_egui::EguiPlugin;
-use economy::systems::{company_simulate, population_consumption};
+use economy::plugin::EconomySimulationPlugin;
 use ui::{render_ui, UIState};
 use worldgen::create_world;
-
-const SIMULATION_TICK_RATE: f32 = 0.25;
 
 fn main() {
     App::new()
@@ -28,14 +23,9 @@ fn main() {
             ..default()
         }))
         .add_plugin(EguiPlugin)
+        .add_plugin(EconomySimulationPlugin)
         .init_resource::<UIState>()
         .add_startup_system(create_world)
         .add_system(render_ui)
-        .add_system(
-            company_simulate.run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE))),
-        )
-        .add_system(
-            population_consumption.run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE))),
-        )
         .run();
 }
