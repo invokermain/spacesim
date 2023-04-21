@@ -112,7 +112,7 @@ pub(crate) fn render_market(ui: &mut Ui, market: &Market) {
 pub(crate) fn render_market_table(ui: &mut Ui, market: &Market) {
     let table = TableBuilder::new(ui)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-        .columns(Column::auto(), 5)
+        .columns(Column::auto(), 4)
         .min_scrolled_height(0.0);
 
     table
@@ -124,10 +124,7 @@ pub(crate) fn render_market_table(ui: &mut Ui, market: &Market) {
                 ui.strong("Supply");
             });
             header.col(|ui| {
-                ui.strong("Supply Pressure");
-            });
-            header.col(|ui| {
-                ui.strong("Demand Pressure");
+                ui.strong("Delta");
             });
             header.col(|ui| {
                 ui.strong("Price Modifier");
@@ -149,18 +146,13 @@ pub(crate) fn render_market_table(ui: &mut Ui, market: &Market) {
                         ui.label(format!(
                             "{:.1}",
                             market.supply_pressure[commodity_type as usize]
+                                - market.demand_pressure[commodity_type as usize]
                         ));
                     });
                     row.col(|ui| {
                         ui.label(format!(
-                            "{:.1}",
-                            market.demand_pressure[commodity_type as usize]
-                        ));
-                    });
-                    row.col(|ui| {
-                        ui.label(format!(
-                            "{:.0}%",
-                            market.demand_price_modifier[commodity_type as usize] * 100.0
+                            "{:.2}",
+                            market.demand_price_modifier[commodity_type as usize] // * 100.0
                         ));
                     });
                 });

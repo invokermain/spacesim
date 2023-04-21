@@ -61,26 +61,19 @@ impl Default for Market {
 
 impl Market {
     fn calculate_demand_modifier(&self, commodity_type: CommodityType) -> f32 {
-        let supply_pressure = self.supply_pressure[commodity_type as usize] / 256.0;
-        let demand_pressure = self.demand_pressure[commodity_type as usize] / 256.0;
+        let supply_pressure = self.supply_pressure[commodity_type as usize];
+        let demand_pressure = self.demand_pressure[commodity_type as usize];
+        let delta = supply_pressure - demand_pressure;
+        let supply = self.total_supply[commodity_type as usize];
 
-        if demand_pressure > supply_pressure {
-            // markup up to 100x depending as stock dwindles and demand pressure increases.
-            // mod roughly more than 100.0 then no markup
-            // as mod approaches zero then markup approaches 100
-            let modifier =
-                self.total_supply[commodity_type as usize] / (demand_pressure - supply_pressure);
-            return f32::max(100.0 - 0.28 * modifier.powf(0.28), 1.0);
-        } else if supply_pressure > demand_pressure {
-            // discount up to 0.75x as stock grows and supply pressure grows
-            // mod less than 50 then no discount
-            // mod greater than 150 maximum discount
-            let modifier =
-                self.total_supply[commodity_type as usize] * supply_pressure / demand_pressure;
-            return ((450.0 - modifier) / 400.0).clamp(0.75, 1.0);
-        } else {
-            return 1.0;
-        }
+        // see https://docs.google.com/spreadsheets/d/1_bHLiL4MsosQ6BOG_aq6LiXr3Y9cbwMy-c6p3wxGmtQ/edit#gid=0
+
+        // price increases as supply decreases, the effect is softened with positive supply
+        let supply_modifier = (50.0 / (supply + 1.0 + (5.0 * delta).max(0.0))).max(1.0);
+
+        let delta_modifier = 2.0 / (1.0 + (0.5 * delta).exp());
+
+        supply_modifier * delta_modifier
     }
 
     pub fn consume(
@@ -91,7 +84,7 @@ impl Market {
     ) -> MarketConsumeResult {
         self.tick_total_demand[commodity_type as usize] += units;
 
-        if self.total_supply[commodity_type as usize] <= 0.01 || self.market_members.len() == 0 {
+        if self.total_supply[commodity_type as usize] <= 0.001 || self.market_members.len() == 0 {
             return MarketConsumeResult {
                 commodity_type,
                 requested_units: units,
@@ -113,7 +106,7 @@ impl Market {
 
             let in_stock = market_member.storage.storage[commodity_type as usize];
 
-            if in_stock <= 0.0 {
+            if in_stock <= 0.001 {
                 continue;
             }
 
@@ -131,7 +124,7 @@ impl Market {
             fulfilled_units += fulfillable_units;
             unfulfilled_units -= unfulfilled_units;
 
-            if unfulfilled_units <= 0.0 {
+            if unfulfilled_units <= 0.001 {
                 break;
             }
         }
@@ -335,8 +328,8 @@ impl Market {
                 self.demand_pressure[commodity_idx] += tick_total_demand;
             }
 
-            self.tick_total_supply = [0.0; COMMODITY_COUNT];
-            self.tick_total_demand = [0.0; COMMODITY_COUNT];
+            self.tick_total_supply[commodity_idx] = 0.0;
+            self.tick_total_demand[commodity_idx] = 0.0;
 
             self.demand_price_modifier[commodity_idx] =
                 self.calculate_demand_modifier(commodity_type);
