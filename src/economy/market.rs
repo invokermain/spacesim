@@ -6,7 +6,7 @@ use super::{
     market_wq::MarketMemberMutQuery,
 };
 use bevy::{
-    prelude::{info, Component, Entity, Query, Res},
+    prelude::{Component, Entity, Query, Res},
     time::Time,
 };
 use strum::IntoEnumIterator;
@@ -19,23 +19,36 @@ const MARKET_FORCES_HISTORY_LENGTH: usize = 32;
 pub struct Market {
     // The market serves as an abstraction over the various economic components of a
     // Planet. It is responsible for tracking macroeconomic values such as demand.
-    pub supply_pressure: CommodityArr<f32>,
-    pub demand_pressure: CommodityArr<f32>,
-    pub demand_price_modifier: CommodityArr<f32>,
     pub total_supply: CommodityArr<f32>,
+    pub demand_price_modifier: CommodityArr<f32>,
     pub market_members: Vec<Entity>,
 
+    // a metric representing average supply and demand per tick
+    pub supply_pressure: CommodityArr<f32>,
+    pub demand_pressure: CommodityArr<f32>,
+
+    // track recent history
     pub transaction_history: VecDeque<(f32, Transaction)>,
+    pub total_supply_history: CommodityArr<VecDeque<f32>>,
     pub supply_history: CommodityArr<VecDeque<f32>>,
     pub demand_history: CommodityArr<VecDeque<f32>>,
+    pub purchase_price_history: CommodityArr<VecDeque<f32>>,
+    pub sale_price_history: CommodityArr<VecDeque<f32>>,
 
-    // new
+    // track intertick values to be aggregated at end of tick
     pub tick_total_demand: CommodityArr<f32>,
     pub tick_total_supply: CommodityArr<f32>,
+    pub tick_total_supply_cost: CommodityArr<f32>,
+    pub tick_total_demand_cost: CommodityArr<f32>,
 }
 
 impl Default for Market {
     fn default() -> Self {
+        let market_history_vec = [
+            VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+            VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+            VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
+        ];
         Self {
             demand_pressure: [0.0; COMMODITY_COUNT],
             supply_pressure: [0.0; COMMODITY_COUNT],
@@ -45,24 +58,23 @@ impl Default for Market {
             demand_price_modifier: [1.0; COMMODITY_COUNT],
             tick_total_demand: [0.0; COMMODITY_COUNT],
             tick_total_supply: [0.0; COMMODITY_COUNT],
-            supply_history: [
-                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
-                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
-                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
-            ],
-            demand_history: [
-                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
-                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
-                VecDeque::from_iter(vec![0.0; MARKET_FORCES_HISTORY_LENGTH]),
-            ],
+            tick_total_supply_cost: [0.0; COMMODITY_COUNT],
+            tick_total_demand_cost: [0.0; COMMODITY_COUNT],
+            supply_history: market_history_vec.clone(),
+            demand_history: market_history_vec.clone(),
+            total_supply_history: market_history_vec.clone(),
+            purchase_price_history: market_history_vec.clone(),
+            sale_price_history: market_history_vec.clone(),
         }
     }
 }
 
 impl Market {
     fn calculate_demand_modifier(&self, commodity_type: CommodityType) -> f32 {
-        let supply_pressure = self.supply_pressure[commodity_type as usize];
-        let demand_pressure = self.demand_pressure[commodity_type as usize];
+        let supply_pressure =
+            self.supply_pressure[commodity_type as usize] / MARKET_FORCES_HISTORY_LENGTH as f32;
+        let demand_pressure =
+            self.demand_pressure[commodity_type as usize] / MARKET_FORCES_HISTORY_LENGTH as f32;
         let delta = supply_pressure - demand_pressure;
         let supply = self.total_supply[commodity_type as usize];
 
@@ -82,9 +94,10 @@ impl Market {
         units: f32,
         query: &mut Query<MarketMemberMutQuery>,
     ) -> MarketConsumeResult {
-        self.tick_total_demand[commodity_type as usize] += units;
+        let commodity_idx = commodity_type as usize;
+        self.tick_total_demand[commodity_idx] += units;
 
-        if self.total_supply[commodity_type as usize] <= 0.001 || self.market_members.len() == 0 {
+        if self.total_supply[commodity_idx] <= 0.001 || self.market_members.len() == 0 {
             return MarketConsumeResult {
                 commodity_type,
                 requested_units: units,
@@ -104,15 +117,15 @@ impl Market {
             // opinion of player.
             let mut market_member = query.get_mut(*member_id).unwrap();
 
-            let in_stock = market_member.storage.storage[commodity_type as usize];
+            let in_stock = market_member.storage.storage[commodity_idx];
 
             if in_stock <= 0.001 {
                 continue;
             }
 
             let fulfillable_units = f32::min(in_stock, unfulfilled_units);
-            let unit_price = self.demand_price_modifier[commodity_type as usize]
-                * market_member.pricing.value[commodity_type as usize];
+            let unit_price = self.demand_price_modifier[commodity_idx]
+                * market_member.pricing.value[commodity_idx];
             let price = unit_price * fulfillable_units;
 
             market_member.wealth.value += price;
@@ -129,7 +142,8 @@ impl Market {
             }
         }
 
-        self.total_supply[commodity_type as usize] -= units;
+        self.total_supply[commodity_idx] -= fulfilled_units;
+        self.tick_total_demand_cost[commodity_idx] += total_cost;
 
         MarketConsumeResult {
             commodity_type,
@@ -271,19 +285,25 @@ impl Market {
     }
 
     /// This makes a transaction that does not mutate the 'seller'. e.g. the seller
-    /// is considered to be an infinite or out-of-market resource.
+    /// is considered to be an infinite or out-of-market resource. Note that the buyer
+    /// is a market member that
     pub fn produce(
         &mut self,
         commodity_type: CommodityType,
         units: f32,
         unit_price: f32,
+        buyer: Entity,
         buyer_storage: &mut CommodityStorage,
         buyer_wealth: &mut Wealth,
     ) -> Result<(), String> {
-        self.tick_total_supply[commodity_type as usize] += units;
+        let commodity_idx = commodity_type as usize;
+        self.tick_total_supply[commodity_idx] += units;
         let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
+        if !self.market_members.contains(&buyer) {
+            return Err("Buyer is not a market member".into());
+        }
         if !buyer_storage.can_store(units) {
             return Err(format!(
                 "Buyer does not have {:.2} units of free space available",
@@ -295,7 +315,8 @@ impl Market {
         buyer_storage.store(commodity_type, units);
         buyer_wealth.value -= transaction_total_cost;
 
-        self.total_supply[commodity_type as usize] += units;
+        self.total_supply[commodity_idx] += units;
+        self.tick_total_supply_cost[commodity_idx] += transaction_total_cost;
 
         Ok(())
     }
@@ -309,11 +330,16 @@ impl Market {
                 let last = self.supply_history[commodity_idx].pop_back().unwrap();
                 self.supply_pressure[commodity_idx] -= last;
 
-                let tick_total_supply =
-                    self.tick_total_supply[commodity_idx] / MARKET_FORCES_HISTORY_LENGTH as f32;
+                let tick_total_supply = self.tick_total_supply[commodity_idx];
 
                 self.supply_history[commodity_idx].push_front(tick_total_supply);
                 self.supply_pressure[commodity_idx] += tick_total_supply;
+
+                let avg_supply_price =
+                    self.tick_total_supply_cost[commodity_idx] / tick_total_supply;
+
+                self.sale_price_history[commodity_idx].pop_back();
+                self.sale_price_history[commodity_idx].push_front(avg_supply_price);
             }
 
             // update demand metrics
@@ -321,18 +347,29 @@ impl Market {
                 let last = self.demand_history[commodity_idx].pop_back().unwrap();
                 self.demand_pressure[commodity_idx] -= last;
 
-                let tick_total_demand =
-                    self.tick_total_demand[commodity_idx] / MARKET_FORCES_HISTORY_LENGTH as f32;
+                let tick_total_demand = self.tick_total_demand[commodity_idx];
 
                 self.demand_history[commodity_idx].push_front(tick_total_demand);
                 self.demand_pressure[commodity_idx] += tick_total_demand;
-            }
 
-            self.tick_total_supply[commodity_idx] = 0.0;
-            self.tick_total_demand[commodity_idx] = 0.0;
+                let avg_demand_price =
+                    self.tick_total_demand_cost[commodity_idx] / tick_total_demand;
+
+                self.purchase_price_history[commodity_idx].pop_back();
+                self.purchase_price_history[commodity_idx].push_front(avg_demand_price);
+            }
 
             self.demand_price_modifier[commodity_idx] =
                 self.calculate_demand_modifier(commodity_type);
+
+            self.total_supply_history[commodity_idx].pop_back();
+            self.total_supply_history[commodity_idx].push_front(self.total_supply[commodity_idx]);
+
+            // reset per tick trackers
+            self.tick_total_supply[commodity_idx] = 0.0;
+            self.tick_total_demand[commodity_idx] = 0.0;
+            self.tick_total_demand_cost[commodity_idx] = 0.0;
+            self.tick_total_supply_cost[commodity_idx] = 0.0;
         }
     }
 }

@@ -1,4 +1,4 @@
-use bevy::prelude::{warn, Query, With};
+use bevy::prelude::{warn, Entity, Query, With};
 
 use crate::common::marker_components::IsCompany;
 
@@ -11,6 +11,7 @@ use super::{
 pub fn company_simulate(
     mut q_company: Query<
         (
+            Entity,
             &mut Wealth,
             &mut CommodityStorage,
             &OwnedFactories,
@@ -21,7 +22,7 @@ pub fn company_simulate(
     mut q_market: Query<&mut Market>,
     q_manufactory: Query<&Production>,
 ) {
-    for (mut wealth, mut storage, owned_factories, on_planet) in q_company.iter_mut() {
+    for (company_id, mut wealth, mut storage, owned_factories, on_planet) in q_company.iter_mut() {
         let mut market = q_market
             .get_component_mut::<Market>(on_planet.value)
             .unwrap();
@@ -43,6 +44,7 @@ pub fn company_simulate(
                         producable.commodity_type,
                         units,
                         producable.cost_per_unit,
+                        company_id,
                         storage.as_mut(),
                         wealth.as_mut(),
                     );

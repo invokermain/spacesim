@@ -1,5 +1,9 @@
 use bevy::prelude::{Entity, World};
-use bevy_egui::egui::{self, Ui};
+use bevy_egui::egui::{
+    self,
+    plot::{Legend, Line, Plot, PlotPoints},
+    Ui,
+};
 use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
@@ -99,6 +103,89 @@ pub(crate) fn render_commodity_storage(ui: &mut Ui, commodity_storage: &Commodit
 
 pub(crate) fn render_market(ui: &mut Ui, market: &Market) {
     render_market_table(ui, market);
+
+    ui.columns(2, |ui_col| {
+        // LEFT
+        ui_col[0].label("Commodity Supply");
+        Plot::new("market_supply_plot")
+            .height(250.0)
+            .legend(Legend::default())
+            .show(&mut ui_col[0], |plot_ui| {
+                for commodity_type in CommodityType::iter() {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_iter(
+                            market.total_supply_history[commodity_type as usize]
+                                .iter()
+                                .rev()
+                                .enumerate()
+                                .map(|(x, total_supply)| [x as f64, *total_supply as f64]),
+                        ))
+                        .name(commodity_type),
+                    );
+                }
+            });
+
+        ui_col[0].label("Market Pressure");
+        Plot::new("market_pressure_plot")
+            .height(250.0)
+            .legend(Legend::default())
+            .show(&mut ui_col[0], |plot_ui| {
+                for commodity_type in CommodityType::iter() {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_iter(
+                            market.supply_history[commodity_type as usize]
+                                .iter()
+                                .zip(&market.demand_history[commodity_type as usize])
+                                .rev()
+                                .enumerate()
+                                .map(|(x, (supply, demand))| {
+                                    [x as f64, (*supply - *demand) as f64]
+                                }),
+                        ))
+                        .name(commodity_type),
+                    );
+                }
+            });
+
+        // RIGHT
+        ui_col[1].label("Commodity Purchase Price");
+        Plot::new("market_purchase_price_plot")
+            .height(250.0)
+            .legend(Legend::default())
+            .show(&mut ui_col[1], |plot_ui| {
+                for commodity_type in CommodityType::iter() {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_iter(
+                            market.purchase_price_history[commodity_type as usize]
+                                .iter()
+                                .rev()
+                                .enumerate()
+                                .map(|(x, price)| [x as f64, *price as f64]),
+                        ))
+                        .name(commodity_type),
+                    );
+                }
+            });
+
+        ui_col[1].label("Commodity Sale Price");
+        Plot::new("market_sale_price_plot")
+            .height(250.0)
+            .legend(Legend::default())
+            .show(&mut ui_col[1], |plot_ui| {
+                for commodity_type in CommodityType::iter() {
+                    plot_ui.line(
+                        Line::new(PlotPoints::from_iter(
+                            market.sale_price_history[commodity_type as usize]
+                                .iter()
+                                .rev()
+                                .enumerate()
+                                .map(|(x, price)| [x as f64, *price as f64]),
+                        ))
+                        .name(commodity_type),
+                    );
+                }
+            });
+    });
 
     market
         .transaction_history
