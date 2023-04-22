@@ -1,5 +1,9 @@
 use bevy::prelude::{Entity, World};
-use bevy_egui::egui::{self, Ui};
+use bevy_egui::egui::{
+    self,
+    plot::{Legend, Line, Plot, PlotPoints},
+    Ui,
+};
 use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
@@ -99,6 +103,21 @@ pub(crate) fn render_commodity_storage(ui: &mut Ui, commodity_storage: &Commodit
 
 pub(crate) fn render_market(ui: &mut Ui, market: &Market) {
     render_market_table(ui, market);
+
+    Plot::new("market_demand_history")
+        .view_aspect(1.0)
+        .legend(Legend::default())
+        .show(ui, |plot_ui| {
+            for commodity_idx in CommodityType::iter() {
+                plot_ui.line(Line::new(PlotPoints::from_iter(
+                    market.demand_history[commodity_idx as usize]
+                        .iter()
+                        .rev()
+                        .enumerate()
+                        .map(|(x, y)| [x as f64, *y as f64]),
+                )));
+            }
+        });
 
     market
         .transaction_history

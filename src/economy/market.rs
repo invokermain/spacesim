@@ -6,7 +6,7 @@ use super::{
     market_wq::MarketMemberMutQuery,
 };
 use bevy::{
-    prelude::{info, Component, Entity, Query, Res},
+    prelude::{Component, Entity, Query, Res},
     time::Time,
 };
 use strum::IntoEnumIterator;
