@@ -1,11 +1,11 @@
 use std::fmt::Debug;
 
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter};
 
 pub const COMMODITY_COUNT: usize = 3;
 pub type CommodityArr<T> = [T; COMMODITY_COUNT];
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, EnumIter, Hash, Clone, Copy)]
+#[derive(Debug, Display, PartialEq, Eq, PartialOrd, Ord, EnumIter, Hash, Clone, Copy)]
 pub enum CommodityType {
     Food,
     Water,
