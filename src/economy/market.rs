@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use super::{
     commodity_type::{CommodityArr, CommodityType, COMMODITY_COUNT},
     components::{CommodityStorage, Wealth},
-    market_wq::MarketMemberMutQuery,
+    market_wq::{MarketBuyerMutQueryItem, MarketSellerMutQuery},
 };
 use bevy::{
     prelude::{Component, Entity, Query, Res},
@@ -92,7 +92,7 @@ impl Market {
         &mut self,
         commodity_type: CommodityType,
         units: f32,
-        query: &mut Query<MarketMemberMutQuery>,
+        query: &mut Query<MarketSellerMutQuery>,
     ) -> MarketConsumeResult {
         let commodity_idx = commodity_type as usize;
         self.tick_total_demand[commodity_idx] += units;
@@ -292,19 +292,17 @@ impl Market {
         commodity_type: CommodityType,
         units: f32,
         unit_price: f32,
-        buyer: Entity,
-        buyer_storage: &mut CommodityStorage,
-        buyer_wealth: &mut Wealth,
+        buyer: &mut MarketBuyerMutQueryItem,
     ) -> Result<(), String> {
         let commodity_idx = commodity_type as usize;
         self.tick_total_supply[commodity_idx] += units;
         let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !self.market_members.contains(&buyer) {
+        if !self.market_members.contains(&buyer.entity) {
             return Err("Buyer is not a market member".into());
         }
-        if !buyer_storage.can_store(units) {
+        if !buyer.storage.can_store(units) {
             return Err(format!(
                 "Buyer does not have {:.2} units of free space available",
                 units
@@ -312,8 +310,8 @@ impl Market {
             .into());
         }
 
-        buyer_storage.store(commodity_type, units);
-        buyer_wealth.value -= transaction_total_cost;
+        buyer.storage.store(commodity_type, units);
+        buyer.wealth.value -= transaction_total_cost;
 
         self.total_supply[commodity_idx] += units;
         self.tick_total_supply_cost[commodity_idx] += transaction_total_cost;

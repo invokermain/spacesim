@@ -1,59 +1,54 @@
-use bevy::prelude::{warn, Entity, Query, With};
+use bevy::prelude::{warn, Query, With};
 
 use crate::common::marker_components::IsCompany;
 
 use super::{
-    components::{CommodityStorage, OnPlanet, OwnedFactories, Population, Production, Wealth},
+    components::{OnPlanet, OwnedFactories, Population, Production},
     market::Market,
-    market_wq::MarketMemberMutQuery,
+    market_wq::{MarketBuyerMutQuery, MarketSellerMutQuery},
 };
 
 pub fn company_simulate(
-    mut q_company: Query<
-        (
-            Entity,
-            &mut Wealth,
-            &mut CommodityStorage,
-            &OwnedFactories,
-            &OnPlanet,
-        ),
-        With<IsCompany>,
-    >,
+    mut q_company: Query<(MarketBuyerMutQuery, &OwnedFactories, &OnPlanet), With<IsCompany>>,
     mut q_market: Query<&mut Market>,
     q_manufactory: Query<&Production>,
 ) {
-    for (company_id, mut wealth, mut storage, owned_factories, on_planet) in q_company.iter_mut() {
+    for (mut buyer, owned_factories, on_planet) in q_company.iter_mut() {
         let mut market = q_market
             .get_component_mut::<Market>(on_planet.value)
             .unwrap();
-        if storage.available_capacity > 0.0 {
-            // TODO: calculate expected profit for each commodity
-            //       for each commodity get market price - manufacture cost,
-            //       then order by expected profit.
+        if buyer.storage.available_capacity > 0.0 {
+            let mut producable_commodities: Vec<_> = owned_factories
+                .value
+                .iter()
+                .map(|entity| {
+                    let prod = q_manufactory.get_component::<Production>(*entity).unwrap();
+                    let profit = prod.cost_per_unit
+                        * market.purchase_price_history[prod.commodity_type as usize][0];
+                    (prod, profit)
+                })
+                .collect();
 
-            for manufactory_entity in &owned_factories.value {
-                let producable = q_manufactory
-                    .get_component::<Production>(*manufactory_entity)
-                    .unwrap();
-                let units = f32::min(producable.output_per_tick, storage.available_capacity);
+            producable_commodities.sort_by(|a, b| f32::total_cmp(&b.1, &a.1));
+
+            for (producable, _) in producable_commodities {
+                let units = f32::min(producable.output_per_tick, buyer.storage.available_capacity);
                 let cost = units * producable.cost_per_unit;
 
                 // we can produce something
-                if wealth.value > cost {
+                if buyer.wealth.value > cost {
                     let result = market.produce(
                         producable.commodity_type,
                         units,
                         producable.cost_per_unit,
-                        company_id,
-                        storage.as_mut(),
-                        wealth.as_mut(),
+                        &mut buyer,
                     );
                     if let Err(msg) = result {
                         warn!("produce for market failed: {:?}", msg);
                     }
                 }
 
-                if storage.available_capacity <= 0.01 {
+                if buyer.storage.available_capacity <= 0.01 {
                     break;
                 }
             }
@@ -63,7 +58,7 @@ pub fn company_simulate(
 
 pub fn population_consumption(
     mut q_planet_pop: Query<(&Population, &mut Market)>,
-    mut q_market_member: Query<MarketMemberMutQuery>,
+    mut q_market_member: Query<MarketSellerMutQuery>,
 ) {
     for (pop, mut market) in q_planet_pop.iter_mut() {
         for (commodity_idx, consumption_rate) in pop.consumption.iter().enumerate() {

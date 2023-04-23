@@ -10,6 +10,7 @@ strum_macros = "0.24.3"
 bevy_egui = "0.20.2"
 egui_extras = "0.21.0"
 chrono = "0.4.24"
+big-brain = "0.17.0"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

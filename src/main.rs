@@ -1,5 +1,6 @@
 mod common;
 mod economy;
+mod ships;
 mod ui;
 mod worldgen;
 

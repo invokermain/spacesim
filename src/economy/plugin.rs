@@ -5,9 +5,9 @@ use bevy::{
     time::common_conditions::on_timer,
 };
 
-use super::systems::{company_simulate, population_consumption, update_market_statistics};
+use crate::common::SIMULATION_TICK_RATE;
 
-const SIMULATION_TICK_RATE: f32 = 0.25;
+use super::systems::{company_simulate, population_consumption, update_market_statistics};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum EconomySimulationSet {
