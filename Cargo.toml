@@ -1,4 +1,4 @@
 [workspace]
 
-members = ["spacesim", "bevy_utility_ai"]
+members = ["spacesim", "bevy_utility_ai", "bevy_utility_ai_macros"]
 resolver = "2"
