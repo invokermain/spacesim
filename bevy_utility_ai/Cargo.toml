@@ -3,9 +3,6 @@ name = "bevy_utility_ai"
 version = "0.0.1"
 edition = "2021"
 
-[lib]
-proc-macro = true
-
 [dependencies]
 bevy_utility_ai_macros = { path = "../bevy_utility_ai_macros" }
 bevy = "0.10"
