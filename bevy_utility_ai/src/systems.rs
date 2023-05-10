@@ -138,7 +138,10 @@ pub fn update_action(world: &mut World) {
                     reflect_component.insert(&mut entity_mut, reflect_default.default().as_ref());
                     debug!("Added Action {:?}", new_action);
                 } else {
-                    panic!("An Action Component was not found in the type registry")
+                    panic!(
+                        "An Action Component was not found in the type registry: {:?}",
+                        new_action
+                    )
                 }
             } else {
                 debug!("Unable to update Entity as it does not exist");

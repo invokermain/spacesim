@@ -1,5 +1,7 @@
 use bevy::prelude::Commands;
 
+use crate::ships::bundles::ShipBundle;
+use crate::ships::components::SystemCoordinates;
 use crate::{
     common::marker_components::IsPlanet,
     economy::{
@@ -20,6 +22,7 @@ pub fn create_world(mut commands: Commands) {
                 value: f32::INFINITY,
             },
             IsPlanet {},
+            SystemCoordinates::new(151_000_000., 0., 0.),
         ))
         .id();
 
@@ -68,6 +71,7 @@ pub fn create_world(mut commands: Commands) {
                 value: f32::INFINITY,
             },
             IsPlanet {},
+            SystemCoordinates::new(250_000_000., 0., 0.),
         ))
         .id();
 
@@ -90,4 +94,9 @@ pub fn create_world(mut commands: Commands) {
     market.market_members.push(company_id);
 
     commands.entity(planet_id).insert(market);
+
+    // A LONELY SHIP
+    commands.spawn(ShipBundle {
+        system_coordinates: SystemCoordinates::new(200_000_000., 0., 0.),
+    });
 }

@@ -1,9 +1,8 @@
 pub mod systems;
 
 use bevy::ecs::query::WorldQuery;
-use bevy::ecs::system::Command;
-use bevy::prelude::{AppTypeRegistry, Commands, World};
-use bevy::reflect::{GetTypeRegistration, Reflect};
+use bevy::prelude::Commands;
+use bevy::reflect::Reflect;
 use bevy::{
     prelude::Component,
     prelude::{Bundle, Query},
@@ -47,13 +46,13 @@ impl<T: Component> AIDefinition<T> {
         }
     }
 
-    pub fn add_decision<C: GetTypeRegistration + Component>(
+    pub fn add_decision<C: Component>(
         mut self,
         considerations: Vec<Consideration>,
     ) -> AIDefinition<T> {
         let decision = Decision {
-            action_name: type_name::<T>().into(),
-            action: TypeId::of::<T>(),
+            action_name: type_name::<C>().into(),
+            action: TypeId::of::<C>(),
             considerations,
         };
 
