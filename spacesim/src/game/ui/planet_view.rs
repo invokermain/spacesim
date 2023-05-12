@@ -17,7 +17,7 @@ use super::{
     render_structs::{RenderPlanet, RenderSystemInfo},
 };
 
-pub(crate) struct PlanetViewState {
+pub struct PlanetViewState {
     selected_planet: Option<Entity>,
     system_info: RenderSystemInfo,
 }

@@ -1,8 +1,8 @@
-use bevy::prelude::{Component, Vec3};
+use bevy::prelude::{Component, Transform, Vec3};
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct SystemCoordinates {
-    value: Vec3,
+    pub value: Vec3,
 }
 
 impl SystemCoordinates {
@@ -10,5 +10,9 @@ impl SystemCoordinates {
         Self {
             value: Vec3::new(x.into(), y.into(), z.into()),
         }
+    }
+
+    pub fn to_transform(&self) -> Transform {
+        Transform::from_translation(self.value)
     }
 }

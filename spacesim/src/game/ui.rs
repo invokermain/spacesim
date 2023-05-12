@@ -1,45 +1,22 @@
 mod planet_view;
 mod query_layer;
 mod render_structs;
+mod widgets;
 
-use bevy::prelude::{Entity, Query, Res, ResMut, Resource, World};
-use bevy_egui::{
-    egui::{self, TopBottomPanel},
-    EguiContext,
-};
+use bevy::prelude::{Query, ResMut, Resource, State, States};
+use bevy_egui::EguiContext;
 
-use self::planet_view::{planet_view, PlanetViewState};
+use self::planet_view::PlanetViewState;
+use self::widgets::widget_view_selector;
 
-#[derive(Resource)]
-pub enum GameView {
-    System,
-    Planet(PlanetViewState),
-    Ship,
-    Galaxy,
-}
-
-impl Default for GameView {
-    fn default() -> Self {
-        Self::System
-    }
-}
-
-pub fn system_view(mut query: Query<&mut EguiContext>, mut res_game_view: ResMut<GameView>) {
+pub fn system_view(
+    mut query: Query<&mut EguiContext>,
+    mut res_game_view_state: ResMut<State<GameViewState>>,
+) {
     let mut egui_ctx = query.single_mut();
-    let game_view = res_game_view.as_mut();
+    let game_view_state = res_game_view_state.as_mut().0;
 
-    TopBottomPanel::top("view_selector").show(egui_ctx.get_mut(), |ui| {
-        ui.horizontal(|ui| {
-            ui.selectable_value(game_view, GameView::System, "System");
-            ui.selectable_value(game_view, GameView::Ship, "Ship");
-            ui.selectable_value(
-                game_view,
-                GameView::Planet(PlanetViewState::default()),
-                "Planets",
-            );
-            ui.selectable_value(game_view, GameView::Galaxy, "Galaxy");
-        })
-    });
+    widget_view_selector(egui_ctx.get_mut(), &mut game_view_state);
 }
 
 // pub fn render_ui(world: &mut World) {

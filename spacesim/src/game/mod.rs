@@ -1,20 +1,19 @@
-mod ui;
+mod state;
+// mod ui;
+mod views;
 
-use bevy::prelude::{IntoSystemConfig, Plugin, Res};
+use bevy::prelude::Plugin;
 use bevy_egui::EguiPlugin;
 
-use self::ui::{system_view, GameView};
+use self::state::GameViewState;
+use self::views::system::SystemViewPlugin;
 
 pub struct GamePlugin;
-
-fn game_view_is_system(game_view: Res<GameView>) -> bool {
-    matches!(game_view.as_ref(), GameView::System)
-}
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(EguiPlugin)
-            .init_resource::<GameView>()
-            .add_system(system_view.run_if(game_view_is_system));
+            .add_state::<GameViewState>()
+            .add_plugin(SystemViewPlugin);
     }
 }

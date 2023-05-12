@@ -22,7 +22,7 @@ pub fn create_world(mut commands: Commands) {
                 value: f32::INFINITY,
             },
             IsPlanet {},
-            SystemCoordinates::new(151_000_000., 0., 0.),
+            SystemCoordinates::new(151_000_000., 10_000_000., 10_000_000.),
         ))
         .id();
 
@@ -71,7 +71,7 @@ pub fn create_world(mut commands: Commands) {
                 value: f32::INFINITY,
             },
             IsPlanet {},
-            SystemCoordinates::new(250_000_000., 0., 0.),
+            SystemCoordinates::new(250_000_000., -10_000_000., -10_000_000.),
         ))
         .id();
 
