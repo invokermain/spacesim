@@ -7,7 +7,7 @@ use bevy_egui::egui::{
 use egui_extras::{Column, TableBuilder};
 use strum::IntoEnumIterator;
 
-use crate::economy::{
+use spacesim_simulation::economy::{
     commodity_type::{CommodityArr, CommodityType},
     market::Market,
 };

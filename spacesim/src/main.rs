@@ -1,18 +1,13 @@
-mod common;
-mod economy;
-mod ships;
-mod ui;
-mod worldgen;
+mod game;
 
 use bevy::{
-    prelude::{default, App, PluginGroup},
+    prelude::{App, PluginGroup},
+    utils::default,
     window::{Window, WindowPlugin},
     DefaultPlugins,
 };
-use bevy_egui::EguiPlugin;
-use economy::plugin::EconomySimulationPlugin;
-use ui::{render_ui, UIState};
-use worldgen::create_world;
+use game::GamePlugin;
+use spacesim_simulation::SimulationPlugin;
 
 fn main() {
     App::new()
@@ -23,10 +18,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugin(EguiPlugin)
-        .add_plugin(EconomySimulationPlugin)
-        .init_resource::<UIState>()
-        .add_startup_system(create_world)
-        .add_system(render_ui)
+        .add_plugin(SimulationPlugin)
+        .add_plugin(GamePlugin)
         .run();
 }

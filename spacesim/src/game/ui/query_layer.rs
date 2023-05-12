@@ -1,4 +1,4 @@
-use crate::{
+use spacesim_simulation::{
     common::marker_components::{IsCompany, IsPlanet},
     economy::{
         components::{CommodityStorage, OnPlanet, OwnedFactories, Population, Wealth},

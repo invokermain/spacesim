@@ -1,6 +1,8 @@
 use bevy::prelude::Entity;
 
-use crate::economy::{commodity_type::CommodityArr, components::Population, market::Market};
+use spacesim_simulation::economy::{
+    commodity_type::CommodityArr, components::Population, market::Market,
+};
 
 #[derive(Debug)]
 pub struct RenderCompany {
