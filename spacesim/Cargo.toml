@@ -1,0 +1,21 @@
+[package]
+name = "spacesim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy_utility_ai = { path = "../bevy_utility_ai" }
+spacesim_simulation = { path = "../spacesim_simulation" }
+bevy = "0.10.1"
+bevy_egui = "0.20.2"
+egui_extras = "0.21.0"
+strum = "0.24.1"
+strum_macros = "0.24.3"
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
