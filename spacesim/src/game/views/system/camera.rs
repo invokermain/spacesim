@@ -2,10 +2,12 @@ use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::{
     Camera3d, Camera3dBundle, Color, Commands, Component, EventReader, Input, Mat3, MouseButton,
-    PerspectiveProjection, Projection, Quat, Query, Res, Transform, Vec2, Vec3,
+    PerspectiveProjection, Projection, Quat, Query, Res, ResMut, Transform, Vec2, Vec3,
 };
 
 use bevy::{utils::default, window::Window};
+
+use super::SystemViewHandles;
 
 /// Tags an entity as capable of panning and orbiting.
 #[derive(Component)]
@@ -63,7 +65,8 @@ pub(super) fn pan_orbit_camera(
     for (mut pan_orbit, mut transform, projection) in query.iter_mut() {
         if orbit_button_changed {
             // only check for upside down when orbiting started or ended this frame
-            // if the camera is "upside" down, panning horizontally would be inverted, so invert the input to make it correct
+            // if the camera is "upside" down, panning horizontally would be inverted, so
+            // invert the input to make it correct
             let up = transform.rotation * Vec3::Y;
             pan_orbit.upside_down = up.y <= 0.0;
         }
@@ -102,7 +105,7 @@ pub(super) fn pan_orbit_camera(
             any = true;
             pan_orbit.radius -= scroll * pan_orbit.radius * 0.2;
             // dont allow zoom to reach zero or you get stuck
-            pan_orbit.radius = f32::max(pan_orbit.radius, 0.05);
+            pan_orbit.radius = f32::clamp(pan_orbit.radius, 0.05, 10.);
         }
 
         if any {
@@ -124,27 +127,31 @@ fn get_window_size(window: &Window) -> Vec2 {
     Vec2::new(window.width(), window.height())
 }
 
-pub(super) fn spawn_camera(mut commands: Commands) {
+pub(super) fn spawn_camera(mut commands: Commands, mut handles: ResMut<SystemViewHandles>) {
     let translation = Vec3::new(5., 5., 5.);
 
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
-            projection: Projection::Perspective(PerspectiveProjection {
-                fov: std::f32::consts::PI / 4.0,
-                near: 0.1,
-                far: 10.,
-                aspect_ratio: 1.0,
-            }),
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::BLACK),
+    let entity_id = commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
+                projection: Projection::Perspective(PerspectiveProjection {
+                    fov: std::f32::consts::PI / 4.0,
+                    near: 0.1,
+                    far: 15.,
+                    aspect_ratio: 1.0,
+                }),
+                camera_3d: Camera3d {
+                    clear_color: ClearColorConfig::Custom(Color::BLACK),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        PanOrbitCamera {
-            radius: translation.length(),
-            ..Default::default()
-        },
-    ));
+            PanOrbitCamera {
+                radius: translation.length(),
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    handles.as_mut().camera = entity_id;
 }

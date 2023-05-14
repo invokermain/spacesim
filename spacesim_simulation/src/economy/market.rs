@@ -69,6 +69,14 @@ impl Default for Market {
     }
 }
 
+/// Constructors and other helpers methods
+impl Market {
+    pub fn add_members(&mut self, members: Vec<Entity>) {
+        self.market_members.extend(members);
+    }
+}
+
+/// Market calculations and core logic etc etc
 impl Market {
     fn calculate_demand_modifier(&self, commodity_type: CommodityType) -> f32 {
         let supply_pressure =

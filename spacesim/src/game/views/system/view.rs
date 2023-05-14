@@ -12,8 +12,7 @@ use super::SCALING_FACTOR;
 type SimulationEntity = Entity;
 type MirrorEntity = Entity;
 
-/// The system view is a scaled down view of the solar system.
-/// The scaling factor is 100_000_000:1.
+/// The system view is a scaled down view of the system.
 pub(crate) fn view_system(
     mut commands: Commands,
     q_simulation: Query<(SimulationEntity, &SystemCoordinates), With<IsPlanet>>,

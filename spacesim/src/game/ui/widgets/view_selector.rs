@@ -1,14 +1,14 @@
 use bevy_egui::egui::{Context, TopBottomPanel};
 
-use crate::game::ui::GameViewState;
+use crate::game::state::GameViewState;
 
-pub(crate) fn widget_view_selector(ctx: &mut Context, current_view: &mut GameViewState) {
+pub fn widget_view_selector(ctx: &mut Context, current_view: &mut GameViewState) {
     TopBottomPanel::top("view_selector").show(ctx, |ui| {
         ui.horizontal(|ui| {
             ui.selectable_value(current_view, GameViewState::System, "System");
-            ui.selectable_value(current_view, GameViewState::Ship, "Ship");
             ui.selectable_value(current_view, GameViewState::Planet, "Planets");
-            ui.selectable_value(current_view, GameViewState::Galaxy, "Galaxy");
+            ui.label("Ship (soon)");
+            ui.label("Galaxy (soon soon)");
         })
     });
 }

@@ -16,3 +16,11 @@ impl SystemCoordinates {
         Transform::from_translation(self.value)
     }
 }
+
+impl From<Transform> for SystemCoordinates {
+    fn from(value: Transform) -> Self {
+        Self {
+            value: value.translation,
+        }
+    }
+}

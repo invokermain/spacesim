@@ -1,5 +1,6 @@
 mod game;
 
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::{
     prelude::{App, PluginGroup},
     utils::default,
@@ -18,6 +19,11 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugin(LogDiagnosticsPlugin {
+            filter: Some(vec![FrameTimeDiagnosticsPlugin::FPS]),
+            ..default()
+        })
+        .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(SimulationPlugin)
         .add_plugin(GamePlugin)
         .run();

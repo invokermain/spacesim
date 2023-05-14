@@ -1,13 +1,16 @@
 use bevy::prelude::{warn, Query, With};
 
 use crate::common::marker_components::IsCompany;
+use crate::planet::components::{OnPlanet, Population};
 
 use super::{
-    components::{OnPlanet, OwnedFactories, Population, Production},
+    components::{OwnedFactories, Production},
     market::Market,
     market_wq::{MarketBuyerMutQuery, MarketSellerMutQuery},
 };
 
+// TODO: replace OnPlanet with TargetMarket... any company should be able to produce for
+//   an arbitrary target market.
 pub fn company_simulate(
     mut q_company: Query<(MarketBuyerMutQuery, &OwnedFactories, &OnPlanet), With<IsCompany>>,
     mut q_market: Query<&mut Market>,

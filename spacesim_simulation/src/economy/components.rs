@@ -1,12 +1,10 @@
 use bevy::prelude::{Bundle, Component, Entity};
 use std::fmt::Debug;
 
-use crate::common::marker_components::{IsCompany, IsPlanet};
+use crate::common::marker_components::IsCompany;
+use crate::planet::components::OnPlanet;
 
-use super::{
-    commodity_type::{CommodityArr, CommodityType, COMMODITY_COUNT},
-    market::Market,
-};
+use super::commodity_type::{CommodityArr, CommodityType, COMMODITY_COUNT};
 
 #[derive(Component, Clone, Copy)]
 pub struct Production {
@@ -68,16 +66,6 @@ pub struct Wealth {
     pub value: f32,
 }
 
-#[derive(Component, Clone, Copy)]
-pub struct Population {
-    pub consumption: CommodityArr<f32>,
-}
-
-#[derive(Component, Clone, Copy)]
-pub struct OnPlanet {
-    pub value: Entity,
-}
-
 #[derive(Component, Clone)]
 pub struct OwnedFactories {
     pub value: Vec<Entity>,
@@ -120,11 +108,4 @@ impl CompanyBundle {
             on_planet: OnPlanet { value: on_planet },
         }
     }
-}
-
-#[derive(Bundle)]
-pub struct PlanetBundle {
-    pub market: Market,
-    pub population: Population,
-    pub is: IsPlanet,
 }
