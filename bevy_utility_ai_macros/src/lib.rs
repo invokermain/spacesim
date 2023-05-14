@@ -1,21 +1,14 @@
-use proc_macro2::TokenStream;
-use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
-use syn::{parse2, FnArg, ItemFn};
+use syn::{parse, FnArg, ItemFn};
 
-#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn input_system(
-    args: proc_macro::TokenStream,
+    _: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    input_system_core(args.into(), input.into()).into()
-}
-
-fn input_system_core(_args: TokenStream, input: TokenStream) -> TokenStream {
-    let item_fn = match parse2::<ItemFn>(input) {
+    let item_fn = match parse::<ItemFn>(input) {
         Ok(syntax_tree) => syntax_tree,
-        Err(error) => return error.to_compile_error(),
+        Err(_) => panic!(), // return error.to_compile_error(),
     };
     // println!("input syntax: {:#?}", item_fn);
 
@@ -26,22 +19,20 @@ fn input_system_core(_args: TokenStream, input: TokenStream) -> TokenStream {
         .inputs
         .iter()
         .map(|input| match input {
-            FnArg::Receiver(_) => abort!(input, "Input function cannot have self"),
+            FnArg::Receiver(_) => panic!(), //abort!(input, "Input function cannot have self"),
             FnArg::Typed(arg) => {
                 let arg_name = match arg.pat.as_ref() {
                     syn::Pat::Ident(ident) => &ident.ident,
-                    _ => abort!(arg, "Expected Ident?"),
+                    _ => panic!(), // abort!(arg, "Expected Ident?"),
                 };
                 let arg_type = match arg.ty.as_ref() {
                     syn::Type::Reference(reference) => match &reference.elem.as_ref() {
-                        syn::Type::Path(path) => path
-                            .path
-                            .segments
-                            .last()
-                            .unwrap_or_else(|| abort!(path.path, "What?")),
-                        _ => abort!(reference.elem, "Expected a Component"),
+                        syn::Type::Path(path) => {
+                            path.path.segments.last().unwrap_or_else(|| panic!())
+                        } //abort!(path.path, "What?")),
+                        _ => panic!(), // abort!(reference.elem, "Expected a Component"),
                     },
-                    _ => abort!(arg.ty, "Expected the parameter type to be a reference"),
+                    _ => panic!(), // abort!(arg.ty, "Expected the parameter type to be a reference"),
                 };
                 (arg_name, arg_type)
             }
@@ -66,21 +57,21 @@ fn input_system_core(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     // println!("after: {}", output.to_string());
 
-    output
+    output.into()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn first() {
-        let before = quote! {
-            fn utility_input_low(some_data: &SomeData) -> f32 {
-                some_data.val
-            }
-        };
+//     #[test]
+//     fn first() {
+//         let before = quote! {
+//             fn utility_input_low(some_data: &SomeData) -> f32 {
+//                 some_data.val
+//             }
+//         };
 
-        input_system_core(quote!(), before);
-    }
-}
+//         input_system_core(quote!(), before);
+//     }
+// }
