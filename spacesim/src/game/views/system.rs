@@ -13,7 +13,9 @@ use crate::game::state::GameViewState;
 use self::camera::{pan_orbit_camera, spawn_camera};
 use self::setup::{spawn_axes, spawn_sun};
 use self::ui::system_ui;
-use self::view::view_system;
+use self::view::{
+    mirror_planets, mirror_ships, update_system_coordinates_based_transforms, MirrorMap,
+};
 
 pub struct SystemViewPlugin;
 
@@ -53,9 +55,14 @@ fn toggle_camera<const V: bool>(
 impl Plugin for SystemViewPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<SystemViewHandles>()
+            .init_resource::<MirrorMap>()
             .add_startup_systems((spawn_camera, spawn_sun, spawn_axes))
             .add_system(toggle_camera::<true>.in_schedule(OnEnter(GameViewState::System)))
-            .add_system(view_system.in_set(OnUpdate(GameViewState::System)))
+            .add_system(mirror_planets.in_set(OnUpdate(GameViewState::System)))
+            .add_system(mirror_ships.in_set(OnUpdate(GameViewState::System)))
+            .add_system(
+                update_system_coordinates_based_transforms.in_set(OnUpdate(GameViewState::System)),
+            )
             .add_system(pan_orbit_camera.in_set(OnUpdate(GameViewState::System)))
             .add_system(system_ui.in_set(OnUpdate(GameViewState::System)))
             .add_system(toggle_camera::<false>.in_schedule(OnExit(GameViewState::System)));

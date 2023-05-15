@@ -1,10 +1,10 @@
 use bevy::prelude::{
-    default, shape, Assets, Commands, Entity, Image, Local, Mesh, PbrBundle, Query, ResMut,
-    StandardMaterial, Transform, With,
+    default, shape, Added, Assets, Changed, Color, Commands, Entity, Image, Local, Mesh, PbrBundle,
+    Query, RemovedComponents, Res, ResMut, Resource, StandardMaterial, Transform, Vec2, With,
 };
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use bevy::utils::{HashMap, HashSet};
-use spacesim_simulation::common::marker_components::IsPlanet;
+use bevy::utils::HashMap;
+use spacesim_simulation::common::marker_components::{IsPlanet, IsShip};
 use spacesim_simulation::ships::components::SystemCoordinates;
 
 use super::SCALING_FACTOR;
@@ -12,12 +12,16 @@ use super::SCALING_FACTOR;
 type SimulationEntity = Entity;
 type MirrorEntity = Entity;
 
-/// The system view is a scaled down view of the system.
-pub(crate) fn view_system(
+#[derive(Resource, Default)]
+pub(crate) struct MirrorMap {
+    value: HashMap<SimulationEntity, MirrorEntity>,
+}
+
+pub(crate) fn mirror_planets(
     mut commands: Commands,
-    q_simulation: Query<(SimulationEntity, &SystemCoordinates), With<IsPlanet>>,
-    mut q_mirror: Query<&mut Transform>,
-    mut mirrored_entities: Local<HashMap<SimulationEntity, MirrorEntity>>,
+    q_new_planets: Query<(SimulationEntity, &SystemCoordinates), Added<IsPlanet>>,
+    mut e_removed_planets: RemovedComponents<IsPlanet>,
+    mut mirrored_entities: ResMut<MirrorMap>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
@@ -27,37 +31,66 @@ pub(crate) fn view_system(
         ..default()
     });
 
-    let mut leftover_mirrored_entities = HashSet::from_iter(mirrored_entities.keys().map(|&k| k));
-
-    for (sim_entity, coords) in &q_simulation {
-        if !mirrored_entities.contains_key(&sim_entity) {
-            let mirrored_entity = commands
-                .spawn(PbrBundle {
-                    mesh: meshes.add(
-                        shape::Icosphere {
-                            radius: 1_000. * 6371. / SCALING_FACTOR,
-                            subdivisions: 50,
-                        }
-                        .try_into()
-                        .unwrap(),
-                    ),
-                    material: debug_material.clone(),
-                    transform: Transform::from_translation(coords.value / SCALING_FACTOR),
-                    ..Default::default()
-                })
-                .id();
-            mirrored_entities.insert(sim_entity, mirrored_entity);
-        } else {
-            leftover_mirrored_entities.remove(&sim_entity);
-
-            // update transform
-            let mut transform = q_mirror.get_mut(mirrored_entities[&sim_entity]).unwrap();
-            *transform = Transform::from_translation(coords.value / SCALING_FACTOR);
-        }
+    for (sim_entity, coords) in &q_new_planets {
+        let mirrored_entity = commands
+            .spawn(PbrBundle {
+                mesh: meshes.add(
+                    shape::Icosphere {
+                        radius: 1_000. * 6371. / SCALING_FACTOR,
+                        subdivisions: 50,
+                    }
+                    .try_into()
+                    .unwrap(),
+                ),
+                material: debug_material.clone(),
+                transform: Transform::from_translation(coords.value / SCALING_FACTOR),
+                ..Default::default()
+            })
+            .id();
+        mirrored_entities.value.insert(sim_entity, mirrored_entity);
     }
 
-    for leftover_entity in leftover_mirrored_entities {
-        commands.entity(leftover_entity).despawn();
+    for sim_entity in e_removed_planets.iter() {
+        mirrored_entities.value.remove(&sim_entity);
+    }
+}
+
+pub(crate) fn mirror_ships(
+    mut commands: Commands,
+    q_new_ships: Query<(SimulationEntity, &SystemCoordinates), Added<IsShip>>,
+    mut e_removed_ships: RemovedComponents<IsShip>,
+    mut mirrored_entities: ResMut<MirrorMap>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (sim_entity, coords) in &q_new_ships {
+        let mirrored_entity = commands
+            .spawn(PbrBundle {
+                mesh: meshes.add(shape::Box::new(0.05, 0.05, 0.05).try_into().unwrap()),
+                material: materials.add(StandardMaterial::from(Color::RED).into()),
+                transform: Transform::from_translation(coords.value / SCALING_FACTOR),
+                ..Default::default()
+            })
+            .id();
+        mirrored_entities.value.insert(sim_entity, mirrored_entity);
+    }
+
+    for sim_entity in e_removed_ships.iter() {
+        mirrored_entities.value.remove(&sim_entity);
+    }
+}
+
+pub(crate) fn update_system_coordinates_based_transforms(
+    q_simulation: Query<(SimulationEntity, &SystemCoordinates), Changed<SystemCoordinates>>,
+    mut q_mirror: Query<&mut Transform>,
+    mirrored_entities: Res<MirrorMap>,
+) {
+    for (sim_entity, coords) in &q_simulation {
+        if let Some(mirror_entity) = mirrored_entities.value.get(&sim_entity) {
+            if let Ok(mut transform) = q_mirror.get_mut(*mirror_entity) {
+                *transform = Transform::from_translation(coords.value / SCALING_FACTOR);
+            }
+        }
     }
 }
 
