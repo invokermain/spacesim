@@ -104,8 +104,8 @@ pub fn create_world(mut commands: Commands) {
     {
         commands.spawn(ShipBundle::new(SystemCoordinates::new(
             200_000_000.,
-            0.,
-            0.,
+            5_000_000.,
+            -5_000_000.,
         )));
     }
 }
