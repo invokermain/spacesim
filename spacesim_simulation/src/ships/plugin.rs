@@ -1,7 +1,7 @@
-use bevy::prelude::Plugin;
+use bevy::prelude::{App, Plugin};
 
 pub struct ShipSimulationPlugin;
 
 impl Plugin for ShipSimulationPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {}
+    fn build(&self, app: &mut App) {}
 }

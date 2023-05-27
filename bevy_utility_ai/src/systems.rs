@@ -1,11 +1,11 @@
 use std::any::TypeId;
 
 use bevy::prelude::{
-    debug, debug_span, AppTypeRegistry, Entity, EventWriter, Events, IntoSystemConfig,
-    IntoSystemSetConfig, Plugin, Query, ReflectComponent, ReflectDefault, SystemSet, World,
+    debug, debug_span, AppTypeRegistry, Component, Entity, EventWriter, Events, IntoSystemConfig,
+    IntoSystemSetConfig, Plugin, Query, ReflectComponent, ReflectDefault, Res, SystemSet, World,
 };
 
-use crate::AIMeta;
+use crate::{AIDefinitions, AIMeta};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum UtililityAISet {
@@ -23,23 +23,29 @@ pub struct UpdateEntityAction {
 pub fn make_decisions(
     mut query: Query<(Entity, &mut AIMeta)>,
     mut event_writer: EventWriter<UpdateEntityAction>,
+    ai_definitions: Res<AIDefinitions>,
 ) {
     let span = debug_span!("Making Decisions");
     let _span = span.enter();
 
     for (entity_id, mut ai_meta) in query.iter_mut() {
+        let ai_definition = &ai_definitions.map[&ai_meta.ai_definition];
+
         let span = debug_span!("", entity = entity_id.index());
         let _span = span.enter();
         let mut decisions = Vec::new();
 
-        for decision in &ai_meta.decisions {
+        for decision in &ai_definition.decisions {
             let span = debug_span!("", action = decision.action_name);
             let _span = span.enter();
 
             let mut decision_score = 1.0;
 
             for consideration in &decision.considerations {
-                let consideration_score = ai_meta.input_scores[&consideration.input];
+                let consideration_score = *ai_meta
+                    .input_scores
+                    .get(&consideration.input)
+                    .unwrap_or(&f32::NEG_INFINITY);
                 if consideration_score == f32::NEG_INFINITY {
                     debug!(
                         "It looks like input system for {} hasn't run, entity might have \

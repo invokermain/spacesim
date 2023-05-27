@@ -1,16 +1,12 @@
 use bevy::prelude::Commands;
 
-use crate::planet::components::{Companies, OnPlanet, PlanetBundle, Population};
+use crate::economy::{
+    commodity_type::CommodityType,
+    components::{CompanyBundle, ManufactoryBundle, Production},
+};
+use crate::planet::components::{OnPlanet, PlanetBundle, Population};
 use crate::ships::bundles::ShipBundle;
 use crate::ships::components::SystemCoordinates;
-use crate::{
-    common::marker_components::IsPlanet,
-    economy::{
-        commodity_type::CommodityType,
-        components::{CompanyBundle, ManufactoryBundle, Production, Wealth},
-        market::Market,
-    },
-};
 
 pub fn create_world(mut commands: Commands) {
     // PLANET: Earth
@@ -106,8 +102,10 @@ pub fn create_world(mut commands: Commands) {
 
     // A LONELY SHIP
     {
-        commands.spawn(ShipBundle {
-            system_coordinates: SystemCoordinates::new(200_000_000., 0., 0.),
-        });
+        commands.spawn(ShipBundle::new(SystemCoordinates::new(
+            200_000_000.,
+            0.,
+            0.,
+        )));
     }
 }
