@@ -55,6 +55,8 @@ mod inner {
 
         let body = item_fn.block;
 
+        // TODO: this needs to check against the AIDefinitions resource if the given entity requires
+        //   the input. Also update WASM macro.
         let output = quote! {
 
             fn #name(mut query: bevy::prelude::Query<(&mut bevy_utility_ai::AIMeta #(, &#types)*)>) {
@@ -146,6 +148,8 @@ mod tests {
             }
         };
 
-        input_system_core(quote!(), before.into());
+        let after = input_system_core(quote!(), before);
+
+        println!("{}", after);
     }
 }

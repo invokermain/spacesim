@@ -1,9 +1,11 @@
 pub mod systems;
 
-use bevy::ecs::query::WorldQuery;
-use bevy::prelude::{App, Resource};
-use bevy::utils::HashMap;
-use bevy::{prelude::Component, prelude::Query};
+use bevy::ecs::component::SparseStorage;
+use bevy::{
+    ecs::query::WorldQuery,
+    prelude::{App, Component, Entity, Query, Resource},
+    utils::HashMap,
+};
 use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
 
@@ -21,6 +23,8 @@ pub struct AIDefinitions {
 pub struct AIMeta {
     ai_definition: TypeId,
     pub input_scores: HashMap<usize, f32>,
+    pub targeted_input_scores: HashMap<(usize, Entity), f32>,
+    pub targeted_input_targets: HashMap<usize, Vec<Entity>>,
     pub current_action: Option<TypeId>,
     pub current_action_score: f32,
     pub current_action_name: String,
@@ -31,6 +35,8 @@ impl AIMeta {
         Self {
             ai_definition: TypeId::of::<T>(),
             input_scores: HashMap::default(),
+            targeted_input_scores: HashMap::default(),
+            targeted_input_targets: HashMap::default(),
             current_action_score: -1.0,
             current_action: None,
             current_action_name: String::default(),
@@ -38,8 +44,20 @@ impl AIMeta {
     }
 }
 
+pub struct WithTarget<T: Component> {
+    component: T,
+    target: Entity,
+}
+
+impl<T: Component> Component for WithTarget<T> {
+    type Storage = SparseStorage;
+}
+
+// Denotes the Target entity ID
+
 /// A builder which allows you declaratively specify your AI
 /// and returns a bundle that you can add to an entity.
+#[derive(Default)]
 pub struct DefineAI<T: Component> {
     input_scores: HashMap<usize, f32>,
     decisions: Vec<Decision>,
@@ -60,6 +78,29 @@ impl<T: Component> DefineAI<T> {
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
             considerations,
+            targeted_considerations: vec![],
+        };
+
+        // set initial input score
+        for consideration in &decision.considerations {
+            self.input_scores
+                .insert(consideration.input, f32::NEG_INFINITY);
+        }
+
+        self.decisions.push(decision);
+        self
+    }
+
+    pub fn add_targeted_decision<C: Component>(
+        mut self,
+        considerations: Vec<Consideration>,
+        targeted_considerations: Vec<TargetedConsideration>,
+    ) -> DefineAI<T> {
+        let decision = Decision {
+            action_name: type_name::<C>().into(),
+            action: TypeId::of::<C>(),
+            considerations,
+            targeted_considerations,
         };
 
         // set initial input score
@@ -83,7 +124,7 @@ impl<T: Component> DefineAI<T> {
         ai_definitions.map.insert(
             TypeId::of::<T>(),
             AIDefinition {
-                decisions: self.decisions.clone(),
+                decisions: self.decisions,
             },
         );
     }
@@ -115,7 +156,7 @@ pub struct TargetedConsideration {
 }
 
 impl TargetedConsideration {
-    pub fn new<Q: WorldQuery>(input: fn(Query<Q>)) -> Self {
+    pub fn new<Q1: WorldQuery, Q2: WorldQuery>(input: fn(Query<Q1>, Query<Q2>)) -> Self {
         Self {
             input_name: type_name_of(input).into(),
             input: input as usize,
