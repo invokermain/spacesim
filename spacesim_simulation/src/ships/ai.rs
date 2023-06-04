@@ -1,9 +1,9 @@
+use bevy::ecs::query::WorldQuery;
 use bevy::{
     prelude::{Component, Entity, Query, ReflectComponent, ReflectDefault, With},
     reflect::Reflect,
     utils::HashMap,
 };
-use bevy::ecs::query::WorldQuery;
 
 use crate::common::marker_components::IsPlanet;
 
@@ -18,16 +18,10 @@ pub struct ShipAI {}
 struct ActionTravellingTo {}
 
 #[derive(WorldQuery)]
-struct SystemPlanets {
-
-}
-
+struct SystemPlanets {}
 
 // #[targeted_input(SystemPlanets)]
-pub(crate) fn distance_to_planet(
-    subject: &SystemCoordinates,
-    target: &SystemCoordinates,
-) -> f32 {
+pub(crate) fn distance_to_planet(subject: &SystemCoordinates, target: &SystemCoordinates) -> f32 {
     subject.value.distance(target.value)
 }
 

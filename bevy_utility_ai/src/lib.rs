@@ -1,6 +1,9 @@
+pub mod ai_meta;
+pub mod response_curves;
 pub mod systems;
 
-use bevy::ecs::component::SparseStorage;
+pub use crate::ai_meta::AIMeta;
+use crate::response_curves::{LinearCurve, ResponseCurve};
 use bevy::{
     ecs::query::WorldQuery,
     prelude::{App, Component, Entity, Query, Resource},
@@ -18,39 +21,9 @@ pub struct AIDefinitions {
     map: HashMap<TypeId, AIDefinition>,
 }
 
-/// A Component which stores all the required state to run the AI Systems.
-#[derive(Component, Clone)]
-pub struct AIMeta {
-    ai_definition: TypeId,
-    pub input_scores: HashMap<usize, f32>,
-    pub targeted_input_scores: HashMap<(usize, Entity), f32>,
-    pub targeted_input_targets: HashMap<usize, Vec<Entity>>,
-    pub current_action: Option<TypeId>,
-    pub current_action_score: f32,
-    pub current_action_name: String,
-}
-
-impl AIMeta {
-    pub fn new<T: Component>() -> Self {
-        Self {
-            ai_definition: TypeId::of::<T>(),
-            input_scores: HashMap::default(),
-            targeted_input_scores: HashMap::default(),
-            targeted_input_targets: HashMap::default(),
-            current_action_score: -1.0,
-            current_action: None,
-            current_action_name: String::default(),
-        }
-    }
-}
-
-pub struct WithTarget<T: Component> {
-    component: T,
+#[derive(Component)]
+pub struct ActionTarget {
     target: Entity,
-}
-
-impl<T: Component> Component for WithTarget<T> {
-    type Storage = SparseStorage;
 }
 
 // Denotes the Target entity ID
@@ -73,12 +46,17 @@ impl<T: Component> DefineAI<T> {
         }
     }
 
-    pub fn add_decision<C: Component>(mut self, considerations: Vec<Consideration>) -> DefineAI<T> {
+    pub fn add_decision<C: Component>(
+        mut self,
+        considerations: Vec<Consideration>,
+    ) -> DefineAI<T> {
         let decision = Decision {
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
             considerations,
             targeted_considerations: vec![],
+            is_targeted: false,
+            target_selector: None,
         };
 
         // set initial input score
@@ -91,16 +69,19 @@ impl<T: Component> DefineAI<T> {
         self
     }
 
-    pub fn add_targeted_decision<C: Component>(
+    pub fn add_targeted_decision<C: Component, Q: WorldQuery>(
         mut self,
+        target_selector: fn(Query<&mut AIMeta>, Query<Q>),
         considerations: Vec<Consideration>,
-        targeted_considerations: Vec<TargetedConsideration>,
+        targeted_considerations: Vec<Consideration>,
     ) -> DefineAI<T> {
         let decision = Decision {
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
             considerations,
             targeted_considerations,
+            is_targeted: true,
+            target_selector: Some(target_selector as usize),
         };
 
         // set initial input score
@@ -131,57 +112,49 @@ impl<T: Component> DefineAI<T> {
 }
 
 fn type_name_of<T>(_: T) -> &'static str {
-    std::any::type_name::<T>()
+    type_name::<T>()
 }
 
-#[derive(Clone)]
 pub struct Consideration {
     pub input_name: String,
     pub input: usize,
+    pub response_curve: Box<dyn ResponseCurve>,
 }
 
 impl Consideration {
-    pub fn new<Q: WorldQuery>(input: fn(Query<Q>)) -> Self {
+    pub fn simple<Q: WorldQuery>(input: fn(Query<Q>)) -> Self {
         Self {
             input_name: type_name_of(input).into(),
             input: input as usize,
+            response_curve: Box::new(LinearCurve::new(1.0)),
         }
     }
-}
 
-#[derive(Clone)]
-pub struct TargetedConsideration {
-    pub input_name: String,
-    pub input: usize,
-}
-
-impl TargetedConsideration {
-    pub fn new<Q1: WorldQuery, Q2: WorldQuery>(input: fn(Query<Q1>, Query<Q2>)) -> Self {
+    pub fn targeted<Q1: WorldQuery, Q2: WorldQuery>(input: fn(Query<Q1>, Query<Q2>)) -> Self {
         Self {
             input_name: type_name_of(input).into(),
             input: input as usize,
+            response_curve: Box::new(LinearCurve::new(1.0)),
         }
+    }
+
+    pub fn with_response_curve(self, response_curve: impl ResponseCurve + 'static) -> Self {
+        Self {
+            response_curve: Box::new(response_curve),
+            ..self
+        }
+    }
+
+    pub fn set_input_name(self, input_name: String) -> Self {
+        Self { input_name, ..self }
     }
 }
 
-#[derive(Clone)]
 pub struct Decision {
     pub action_name: String,
     pub action: TypeId,
     pub considerations: Vec<Consideration>,
-    pub targeted_considerations: Vec<TargetedConsideration>,
-}
-
-impl Decision {
-    pub fn new<T: Component>(
-        considerations: Vec<Consideration>,
-        targeted_considerations: Vec<TargetedConsideration>,
-    ) -> Self {
-        Self {
-            action_name: type_name::<T>().into(),
-            action: TypeId::of::<T>(),
-            considerations,
-            targeted_considerations,
-        }
-    }
+    pub targeted_considerations: Vec<Consideration>,
+    pub is_targeted: bool,
+    pub target_selector: Option<usize>,
 }

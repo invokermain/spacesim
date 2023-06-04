@@ -1,15 +1,15 @@
 use std::any::TypeId;
 
-use bevy::math::IVec2;
 use bevy::prelude::{Entity, Query, Vec2};
 use bevy::{
     log::LogPlugin,
     prelude::{App, Component, IntoSystemConfig, ReflectComponent, ReflectDefault},
     reflect::Reflect,
 };
+use bevy_utility_ai::ai_meta::AIMeta;
 use bevy_utility_ai::{
     systems::{UtililityAISet, UtilityAIPlugin},
-    AIMeta, Consideration, DefineAI, TargetedConsideration,
+    Consideration, DefineAI,
 };
 use bevy_utility_ai_macros::input_system;
 
@@ -60,8 +60,8 @@ fn test() {
     app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI>::new()
-        .add_decision::<ActionOne>(vec![Consideration::new(utility_input_low)])
-        .add_decision::<ActionTwo>(vec![Consideration::new(utility_input_high)])
+        .add_decision::<ActionOne>(vec![Consideration::simple(utility_input_low)])
+        .add_decision::<ActionTwo>(vec![Consideration::simple(utility_input_high)])
         .register(&mut app);
 
     app.register_type::<ActionOne>();
@@ -92,22 +92,33 @@ fn test() {
 #[test]
 fn test_targeted() {
     // SETUP
-    // fn targeted_utility_input(subject: (&Position, ), target: (&Position, )) -> f32 {
-    //     subject.0.val.distance(target.0.val)
-    // }
+    fn target_selector(mut q_subject: Query<&mut AIMeta>, q_targets: Query<(Entity, &Position)>) {
+        let key = targeted_utility_input as usize;
+        for mut ai_meta in q_subject.iter_mut() {
+            let targets = q_targets.iter().map(|x| x.0).collect();
 
-    fn targets(q: Query<Entity>) {}
+            if let Some(val) = ai_meta.targeted_input_targets.get_mut(&key) {
+                *val = targets;
+            } else {
+                ai_meta.targeted_input_targets.insert(key, targets);
+            }
+        }
+    }
 
     fn targeted_utility_input(
-        mut q_subject: Query<(&mut AIMeta, &Position)>,
+        mut q_subject: Query<(Entity, &mut AIMeta, &Position)>,
         q_target: Query<(&Position,)>,
     ) {
         let key = targeted_utility_input as usize;
-        for (mut ai_meta, position) in q_subject.iter_mut() {
+        for (subject_entity_id, mut ai_meta, position) in q_subject.iter_mut() {
             let subject = (position,);
-            for &entity_id in &ai_meta.targeted_input_targets[&key] {
+            let targets = ai_meta.targeted_input_targets[&key].clone();
+            for entity_id in targets {
+                if entity_id == subject_entity_id {
+                    continue;
+                }
                 let target = q_target.get(entity_id).unwrap();
-                let score = subject.0.val.distance(target.0.val);
+                let score = subject.0.val.distance(target.0.val).recip();
                 let entry = ai_meta
                     .targeted_input_scores
                     .entry((key, entity_id))
@@ -144,13 +155,17 @@ fn test_targeted() {
     app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI>::new()
-        .add_targeted_decision::<ActionOne>(
+        .add_targeted_decision::<ActionOne, (Entity, &Position)>(
+            target_selector,
             vec![],
-            vec![TargetedConsideration::new(targeted_utility_input)],
+            vec![Consideration::targeted(targeted_utility_input)
+                .set_input_name("targeted_utility_input".into())],
         )
         .register(&mut app);
 
     app.register_type::<ActionOne>();
+
+    app.add_system(target_selector.in_set(UtililityAISet::SelectTargets));
     app.add_system(targeted_utility_input.in_set(UtililityAISet::CalculateInputs));
 
     let entity_id = app
@@ -164,8 +179,9 @@ fn test_targeted() {
         ))
         .id();
 
-    {
-        app.world.spawn_batch(vec![
+    let target_entitites = app
+        .world
+        .spawn_batch(vec![
             (
                 Target {},
                 Position {
@@ -178,10 +194,17 @@ fn test_targeted() {
                     val: Vec2::new(1., 1.),
                 },
             ),
-        ]);
-    }
+        ])
+        .collect::<Vec<Entity>>();
 
     app.update();
 
     let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
+
+    assert_eq!(
+        ai_meta.current_action_score,
+        Vec2::new(1., 1.).distance(Vec2::new(0.9, 0.9)).recip()
+    );
+    assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionOne>()));
+    assert_eq!(ai_meta.current_target, Some(target_entitites[1]));
 }
