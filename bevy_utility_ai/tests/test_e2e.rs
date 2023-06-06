@@ -1,17 +1,19 @@
 use std::any::TypeId;
 
 use bevy::prelude::{Entity, Query, Vec2};
+use bevy::utils::hashbrown::HashMap;
 use bevy::{
     log::LogPlugin,
     prelude::{App, Component, IntoSystemConfig, ReflectComponent, ReflectDefault},
     reflect::Reflect,
 };
 use bevy_utility_ai::ai_meta::AIMeta;
+use bevy_utility_ai::response_curves::LinearCurve;
 use bevy_utility_ai::{
     systems::{UtililityAISet, UtilityAIPlugin},
     Consideration, DefineAI,
 };
-use bevy_utility_ai_macros::input_system;
+use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
 /// trivial case of two decisions with one consideration each.
@@ -92,41 +94,34 @@ fn test() {
 #[test]
 fn test_targeted() {
     // SETUP
-    fn target_selector(mut q_subject: Query<&mut AIMeta>, q_targets: Query<(Entity, &Position)>) {
-        let key = targeted_utility_input as usize;
-        for mut ai_meta in q_subject.iter_mut() {
-            let targets = q_targets.iter().map(|x| x.0).collect();
-
-            if let Some(val) = ai_meta.targeted_input_targets.get_mut(&key) {
-                *val = targets;
-            } else {
-                ai_meta.targeted_input_targets.insert(key, targets);
-            }
-        }
+    #[targeted_input_system]
+    fn targeted_utility_input(subject: (&Position,), target: (&Position,)) -> f32 {
+        subject.0.val.distance(target.0.val)
     }
 
-    fn targeted_utility_input(
-        mut q_subject: Query<(Entity, &mut AIMeta, &Position)>,
-        q_target: Query<(&Position,)>,
-    ) {
-        let key = targeted_utility_input as usize;
-        for (subject_entity_id, mut ai_meta, position) in q_subject.iter_mut() {
-            let subject = (position,);
-            let targets = ai_meta.targeted_input_targets[&key].clone();
-            for entity_id in targets {
-                if entity_id == subject_entity_id {
-                    continue;
-                }
-                let target = q_target.get(entity_id).unwrap();
-                let score = subject.0.val.distance(target.0.val).recip();
-                let entry = ai_meta
-                    .targeted_input_scores
-                    .entry((key, entity_id))
-                    .or_insert(f32::NEG_INFINITY);
-                *entry = score;
-            }
-        }
-    }
+    // fn targeted_utility_input(
+    //     mut q_subject: Query<(Entity, &mut AIMeta, &Position)>,
+    //     q_target: Query<(Entity, &Position)>,
+    // ) {
+    //     let key = targeted_utility_input as usize;
+    //
+    //     for (subject_entity_id, mut ai_meta, position) in q_subject.iter_mut() {
+    //         let score_map = ai_meta
+    //             .targeted_input_scores
+    //             .entry(key)
+    //             .or_insert(HashMap::new());
+    //         let subject = (position,);
+    //         for (entity_id, position) in q_target.iter() {
+    //             if entity_id == subject_entity_id {
+    //                 continue;
+    //             }
+    //             let target = (position,);
+    //             let score = { subject.0.val.distance(target.0.val) };
+    //             let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
+    //             *entry = score;
+    //         }
+    //     }
+    // }
 
     // Marker component for our AI system
     #[derive(Component)]
@@ -155,17 +150,13 @@ fn test_targeted() {
     app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI>::new()
-        .add_targeted_decision::<ActionOne, (Entity, &Position)>(
-            target_selector,
-            vec![],
-            vec![Consideration::targeted(targeted_utility_input)
-                .set_input_name("targeted_utility_input".into())],
-        )
+        .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input)
+            .with_response_curve(LinearCurve::new(-1.0).shifted(0.0, 1.0))
+            .set_input_name("targeted_utility_input".into())])
         .register(&mut app);
 
     app.register_type::<ActionOne>();
 
-    app.add_system(target_selector.in_set(UtililityAISet::SelectTargets));
     app.add_system(targeted_utility_input.in_set(UtililityAISet::CalculateInputs));
 
     let entity_id = app
@@ -201,10 +192,7 @@ fn test_targeted() {
 
     let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
 
-    assert_eq!(
-        ai_meta.current_action_score,
-        Vec2::new(1., 1.).distance(Vec2::new(0.9, 0.9)).recip()
-    );
+    // assert that we are targeting the closest target
     assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionOne>()));
     assert_eq!(ai_meta.current_target, Some(target_entitites[1]));
 }

@@ -7,10 +7,6 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-bevy = "0.10"
-syn = { version = "1", features = ["extra-traits", "full", "fold"] }
+syn = { version = "2", features = ["extra-traits", "full", "fold"] }
 quote = "1"
 
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
-proc-macro2 = "1"
-proc-macro-error = "1"

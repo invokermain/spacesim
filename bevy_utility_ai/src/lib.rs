@@ -32,7 +32,6 @@ pub struct ActionTarget {
 /// and returns a bundle that you can add to an entity.
 #[derive(Default)]
 pub struct DefineAI<T: Component> {
-    input_scores: HashMap<usize, f32>,
     decisions: Vec<Decision>,
     marker_phantom: PhantomData<T>,
 }
@@ -42,7 +41,6 @@ impl<T: Component> DefineAI<T> {
         Self {
             marker_phantom: PhantomData,
             decisions: Vec::new(),
-            input_scores: HashMap::new(),
         }
     }
 
@@ -50,52 +48,31 @@ impl<T: Component> DefineAI<T> {
         mut self,
         considerations: Vec<Consideration>,
     ) -> DefineAI<T> {
+        let mut simple_considerations = Vec::new();
+        let mut targeted_considerations = Vec::new();
+
+        considerations
+            .into_iter()
+            .for_each(|consideration| match consideration.is_targeted {
+                true => {
+                    targeted_considerations.push(consideration);
+                }
+                false => {
+                    simple_considerations.push(consideration);
+                }
+            });
+
+        let is_targeted = !targeted_considerations.is_empty();
+
         let decision = Decision {
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
-            considerations,
-            targeted_considerations: vec![],
-            is_targeted: false,
-            target_selector: None,
-        };
-
-        // set initial input score
-        for consideration in &decision.considerations {
-            self.input_scores
-                .insert(consideration.input, f32::NEG_INFINITY);
-        }
-
-        self.decisions.push(decision);
-        self
-    }
-
-    pub fn add_targeted_decision<C: Component, Q: WorldQuery>(
-        mut self,
-        target_selector: fn(Query<&mut AIMeta>, Query<Q>),
-        considerations: Vec<Consideration>,
-        targeted_considerations: Vec<Consideration>,
-    ) -> DefineAI<T> {
-        let decision = Decision {
-            action_name: type_name::<C>().into(),
-            action: TypeId::of::<C>(),
-            considerations,
+            simple_considerations,
             targeted_considerations,
-            is_targeted: true,
-            target_selector: Some(target_selector as usize),
+            is_targeted,
         };
 
-        // set initial input score
-        for consideration in &decision.considerations {
-            self.input_scores
-                .insert(consideration.input, f32::NEG_INFINITY);
-        }
-
         self.decisions.push(decision);
-        self
-    }
-
-    pub fn add_input<Q: WorldQuery>(mut self, input: fn(Query<Q>)) -> DefineAI<T> {
-        self.input_scores.insert(input as usize, -1.0);
         self
     }
 
@@ -119,6 +96,7 @@ pub struct Consideration {
     pub input_name: String,
     pub input: usize,
     pub response_curve: Box<dyn ResponseCurve>,
+    pub is_targeted: bool,
 }
 
 impl Consideration {
@@ -127,6 +105,7 @@ impl Consideration {
             input_name: type_name_of(input).into(),
             input: input as usize,
             response_curve: Box::new(LinearCurve::new(1.0)),
+            is_targeted: false,
         }
     }
 
@@ -135,6 +114,7 @@ impl Consideration {
             input_name: type_name_of(input).into(),
             input: input as usize,
             response_curve: Box::new(LinearCurve::new(1.0)),
+            is_targeted: true,
         }
     }
 
@@ -153,8 +133,7 @@ impl Consideration {
 pub struct Decision {
     pub action_name: String,
     pub action: TypeId,
-    pub considerations: Vec<Consideration>,
+    pub simple_considerations: Vec<Consideration>,
     pub targeted_considerations: Vec<Consideration>,
     pub is_targeted: bool,
-    pub target_selector: Option<usize>,
 }

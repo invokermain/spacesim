@@ -12,7 +12,6 @@ use crate::{AIDefinitions, ActionTarget, Decision};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum UtililityAISet {
-    SelectTargets,
     CalculateInputs,
     MakeDecisions,
     UpdateActions,
@@ -48,7 +47,7 @@ pub fn make_decisions(
             let mut decision_score = 1.0;
 
             // consider non-targeted considerations
-            for consideration in &decision.considerations {
+            for consideration in &decision.simple_considerations {
                 let consideration_input_score = *ai_meta
                     .input_scores
                     .get(&consideration.input)
@@ -84,31 +83,26 @@ pub fn make_decisions(
 
             // consider targeted considerations
             for consideration in &decision.targeted_considerations {
-                let targets = ai_meta.targeted_input_targets[&consideration.input].clone();
-                for entity_id in targets {
-                    let consideration_input_score = *ai_meta
-                        .targeted_input_scores
-                        .get(&(consideration.input, entity_id))
-                        .unwrap_or(&f32::NEG_INFINITY);
-                    if consideration_input_score == f32::NEG_INFINITY {
-                        debug!(
-                            "It looks like targeted input system {} for entity {:?} hasn't run, \
-                            entity might have components missing?",
-                            consideration.input_name, entity_id
-                        );
-                    } else {
-                        let consideration_score = consideration
-                            .response_curve
-                            .transform(consideration_input_score)
-                            .clamp(0.0, 1.0);
-                        debug!(
-                            "Consideration score for targeted system {} and entity {:?} is {:.2} (raw {:.2})",
-                            consideration.input_name, entity_id, consideration_score, consideration_input_score
-                        );
+                let score_map = ai_meta.targeted_input_scores.get(&consideration.input);
+                if score_map.is_none() {
+                    debug!(
+                        "No scores where registered for targeted input system {}",
+                        consideration.input_name
+                    );
+                };
+                for (&target_entity, &consideration_input_score) in score_map.unwrap() {
+                    let consideration_score = consideration
+                        .response_curve
+                        .transform(consideration_input_score)
+                        .clamp(0.0, 1.0);
+                    debug!(
+                        "Consideration score for targeted system {} and entity {:?} is {:.2} (raw {:.2})",
+                        consideration.input_name, target_entity, consideration_score, consideration_input_score
+                    );
 
-                        *targeted_scores.entry(entity_id).or_insert(decision_score) *=
-                            consideration_score;
-                    }
+                    *targeted_scores
+                        .entry(target_entity)
+                        .or_insert(decision_score) *= consideration_score;
                 }
             }
 
