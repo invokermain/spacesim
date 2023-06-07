@@ -41,7 +41,7 @@ pub(crate) fn targeted_input_system(
                 let score_map = ai_meta
                     .targeted_input_scores
                     .entry(key)
-                    .or_insert(HashMap::new());
+                    .or_insert(bevy::utils::HashMap::new());
                 let #subject_ident = (#(#subject_arg_names, )*);
                 for (entity_id #(, #target_arg_names)*) in q_target.iter() {
                     if entity_id == subject_entity_id {

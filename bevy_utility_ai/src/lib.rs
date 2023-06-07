@@ -5,6 +5,7 @@ pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
 pub use crate::ai_meta::AIMeta;
 use crate::response_curves::{LinearCurve, ResponseCurve};
+use crate::systems::ensure_entity_has_ai_meta;
 use bevy::{
     ecs::query::WorldQuery,
     prelude::{App, Component, Entity, Query, Resource},
@@ -14,17 +15,17 @@ use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
 
 pub struct AIDefinition {
-    decisions: Vec<Decision>,
+    pub decisions: Vec<Decision>,
 }
 
 #[derive(Resource, Default)]
 pub struct AIDefinitions {
-    map: HashMap<TypeId, AIDefinition>,
+    pub map: HashMap<TypeId, AIDefinition>,
 }
 
 #[derive(Component)]
 pub struct ActionTarget {
-    target: Entity,
+    pub target: Entity,
 }
 
 // Denotes the Target entity ID
@@ -79,6 +80,7 @@ impl<T: Component> DefineAI<T> {
 
     pub fn register(self, app: &mut App) {
         app.init_resource::<AIDefinitions>();
+        app.add_system(ensure_entity_has_ai_meta::<T>);
         let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
         ai_definitions.map.insert(
             TypeId::of::<T>(),

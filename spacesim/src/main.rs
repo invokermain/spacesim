@@ -23,7 +23,7 @@ fn main() {
                     ..default()
                 })
                 .set(LogPlugin {
-                    filter: "info,wgpu_core=warn,wgpu_hal=warn,bevy_utility_ai=debug".into(),
+                    filter: "info,wgpu_core=warn,wgpu_hal=warn,bevy_utility_ai=info".into(),
                     level: bevy::log::Level::DEBUG,
                 }),
         )

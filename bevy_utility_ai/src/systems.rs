@@ -1,9 +1,9 @@
 use std::any::TypeId;
 
 use bevy::prelude::{
-    debug, debug_span, AppTypeRegistry, Entity, EventWriter, Events, IntoSystemConfig,
-    IntoSystemSetConfig, Plugin, Query, ReflectComponent, ReflectDefault, Res, SystemSet,
-    World,
+    debug, debug_span, Added, AppTypeRegistry, Changed, Commands, Component, Entity,
+    EventWriter, Events, IntoSystemConfig, IntoSystemSetConfig, Plugin, Query,
+    ReflectComponent, ReflectDefault, Res, SystemSet, World,
 };
 use bevy::utils::HashMap;
 
@@ -23,6 +23,15 @@ pub struct UpdateEntityAction {
     new_action: TypeId,
     old_target: Option<Entity>,
     new_target: Option<Entity>,
+}
+
+pub fn ensure_entity_has_ai_meta<T: Component>(
+    mut commmads: Commands,
+    query: Query<Entity, Added<T>>,
+) {
+    for entity in &query {
+        commmads.entity(entity).insert(AIMeta::new::<T>());
+    }
 }
 
 pub fn make_decisions(
@@ -197,9 +206,8 @@ pub fn update_action(world: &mut World) {
         .remove_resource::<Events<UpdateEntityAction>>()
         .unwrap();
 
-    debug!("{} Events to process", events.len());
-
-    {
+    if !events.is_empty() {
+        debug!("{} Events to process", events.len());
         let registry_read = type_registry.read();
 
         for event in events.drain() {

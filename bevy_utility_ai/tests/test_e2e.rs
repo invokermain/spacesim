@@ -1,7 +1,6 @@
 use std::any::TypeId;
 
 use bevy::prelude::{Entity, Vec2};
-use bevy::utils::hashbrown::HashMap;
 use bevy::{
     log::LogPlugin,
     prelude::{App, Component, IntoSystemConfig, ReflectComponent, ReflectDefault},
@@ -18,7 +17,7 @@ use bevy_utility_ai_macros::{input_system, targeted_input_system};
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
 /// trivial case of two decisions with one consideration each.
 #[test]
-fn test() {
+fn simple_considerations_trivial() {
     // SETUP
     #[input_system]
     fn utility_input_low(some_data: &SomeData) -> f32 {
@@ -92,7 +91,7 @@ fn test() {
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
 /// trivial targeted case of one decision with one targeted consideration.
 #[test]
-fn test_targeted() {
+fn targeted_trivial() {
     // SETUP
     #[targeted_input_system]
     fn targeted_utility_input(subject: (&Position,), target: (&Position,)) -> f32 {
