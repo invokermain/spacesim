@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use bevy::prelude::{Entity, Query, Vec2};
+use bevy::prelude::{Entity, Vec2};
 use bevy::utils::hashbrown::HashMap;
 use bevy::{
     log::LogPlugin,
@@ -98,30 +98,6 @@ fn test_targeted() {
     fn targeted_utility_input(subject: (&Position,), target: (&Position,)) -> f32 {
         subject.0.val.distance(target.0.val)
     }
-
-    // fn targeted_utility_input(
-    //     mut q_subject: Query<(Entity, &mut AIMeta, &Position)>,
-    //     q_target: Query<(Entity, &Position)>,
-    // ) {
-    //     let key = targeted_utility_input as usize;
-    //
-    //     for (subject_entity_id, mut ai_meta, position) in q_subject.iter_mut() {
-    //         let score_map = ai_meta
-    //             .targeted_input_scores
-    //             .entry(key)
-    //             .or_insert(HashMap::new());
-    //         let subject = (position,);
-    //         for (entity_id, position) in q_target.iter() {
-    //             if entity_id == subject_entity_id {
-    //                 continue;
-    //             }
-    //             let target = (position,);
-    //             let score = { subject.0.val.distance(target.0.val) };
-    //             let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
-    //             *entry = score;
-    //         }
-    //     }
-    // }
 
     // Marker component for our AI system
     #[derive(Component)]

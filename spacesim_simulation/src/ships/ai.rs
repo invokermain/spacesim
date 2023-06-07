@@ -1,11 +1,12 @@
-use bevy::ecs::query::WorldQuery;
+use bevy::prelude::{App, IntoSystemConfig};
 use bevy::{
-    prelude::{Component, Entity, Query, ReflectComponent, ReflectDefault, With},
+    prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
     utils::HashMap,
 };
-
-use crate::common::marker_components::IsPlanet;
+use bevy_utility_ai::response_curves::LinearCurve;
+use bevy_utility_ai::systems::UtililityAISet;
+use bevy_utility_ai::{targeted_input_system, Consideration, DefineAI};
 
 use super::components::SystemCoordinates;
 
@@ -17,15 +18,24 @@ pub struct ShipAI {}
 #[reflect(Component, Default)]
 struct ActionTravellingTo {}
 
-#[derive(WorldQuery)]
-struct SystemPlanets {}
-
-// #[targeted_input(SystemPlanets)]
+// TODO: this needs to be filtered to only Planets
+#[targeted_input_system]
 pub(crate) fn distance_to_planet(
-    subject: &SystemCoordinates,
-    target: &SystemCoordinates,
+    subject: (&SystemCoordinates,),
+    target: (&SystemCoordinates,),
 ) -> f32 {
-    subject.value.distance(target.value)
+    subject.0.value.distance(target.0.value)
+}
+
+pub(super) fn define_ship_ai(app: &mut App) {
+    DefineAI::<ShipAI>::new()
+        .add_decision::<ActionTravellingTo>(vec![Consideration::targeted(distance_to_planet)
+            .with_response_curve(LinearCurve::new(-1.0 / 750_000_000.0).shifted(0.0, 1.0))
+            .set_input_name("distance_to_planet".into())])
+        .register(app);
+
+    app.register_type::<ActionTravellingTo>();
+    app.add_system(distance_to_planet.in_set(UtililityAISet::CalculateInputs));
 }
 
 // Actions

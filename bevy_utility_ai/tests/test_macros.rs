@@ -1,5 +1,5 @@
-use bevy::prelude::{App, Component, Entity, Query};
-use bevy_utility_ai_macros::{input_system, target_selector};
+use bevy::prelude::{App, Component};
+use bevy_utility_ai_macros::input_system;
 
 #[derive(Component)]
 struct SomeData {
@@ -16,32 +16,6 @@ fn input_system_macro() {
     // assert it produces a valid bevy system that can run for a single step
     let mut app = App::new();
     app.add_system(utility_input_low);
-    app.update();
-}
-
-#[test]
-fn target_selector_macro() {
-    #[target_selector]
-    fn my_target_selector(q_targets: Query<Entity>) -> Vec<Entity> {
-        q_targets.iter().collect()
-    }
-
-    // assert it produces a valid bevy system that can run for a single step
-    let mut app = App::new();
-    app.add_system(my_target_selector);
-    app.update();
-}
-
-#[test]
-fn target_selector_macro2() {
-    #[target_selector]
-    fn my_target_selector(q_targets: Query<(Entity, &SomeData)>) -> Vec<Entity> {
-        q_targets.iter().map(|x| x.0).collect()
-    }
-
-    // assert it produces a valid bevy system that can run for a single step
-    let mut app = App::new();
-    app.add_system(my_target_selector);
     app.update();
 }
 

@@ -1,6 +1,7 @@
 pub mod ai_meta;
 pub mod response_curves;
 pub mod systems;
+pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
 pub use crate::ai_meta::AIMeta;
 use crate::response_curves::{LinearCurve, ResponseCurve};
