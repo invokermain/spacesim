@@ -1,130 +1,142 @@
+pub mod ai_meta;
+pub mod response_curves;
 pub mod systems;
+pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
-use bevy::ecs::query::WorldQuery;
-use bevy::prelude::Commands;
-use bevy::reflect::Reflect;
+pub use crate::ai_meta::AIMeta;
+use crate::response_curves::{LinearCurve, ResponseCurve};
+use crate::systems::ensure_entity_has_ai_meta;
 use bevy::{
-    prelude::Component,
-    prelude::{Bundle, Query},
+    ecs::query::WorldQuery,
+    prelude::{App, Component, Entity, Query, Resource},
+    utils::HashMap,
 };
 use std::any::{type_name, TypeId};
-use std::collections::HashMap;
+use std::marker::PhantomData;
 
-pub trait Action: Component + Reflect {}
-
-/// A Component which stores all the required state to run the AI Systems.
-#[derive(Component, Default, Clone)]
-pub struct AIMeta {
-    pub input_scores: HashMap<usize, f32>,
+pub struct AIDefinition {
     pub decisions: Vec<Decision>,
-    pub current_action: Option<TypeId>,
-    pub current_action_score: f32,
-    pub current_action_name: String,
 }
 
-impl AIMeta {
-    pub fn new() -> Self {
-        Self {
-            current_action_score: -1.0,
-            ..Default::default()
-        }
-    }
+#[derive(Resource, Default)]
+pub struct AIDefinitions {
+    pub map: HashMap<TypeId, AIDefinition>,
 }
+
+#[derive(Component)]
+pub struct ActionTarget {
+    pub target: Entity,
+}
+
+// Denotes the Target entity ID
 
 /// A builder which allows you declaratively specify your AI
 /// and returns a bundle that you can add to an entity.
-pub struct AIDefinition<T: Component> {
-    ai_meta: AIMeta,
-    component: T,
+#[derive(Default)]
+pub struct DefineAI<T: Component> {
+    decisions: Vec<Decision>,
+    marker_phantom: PhantomData<T>,
 }
 
-impl<T: Component> AIDefinition<T> {
-    pub fn new(component: T) -> AIDefinition<T> {
+impl<T: Component> DefineAI<T> {
+    pub fn new() -> DefineAI<T> {
         Self {
-            ai_meta: AIMeta::default(),
-            component,
+            marker_phantom: PhantomData,
+            decisions: Vec::new(),
         }
     }
 
     pub fn add_decision<C: Component>(
         mut self,
         considerations: Vec<Consideration>,
-    ) -> AIDefinition<T> {
+    ) -> DefineAI<T> {
+        let mut simple_considerations = Vec::new();
+        let mut targeted_considerations = Vec::new();
+
+        considerations
+            .into_iter()
+            .for_each(|consideration| match consideration.is_targeted {
+                true => {
+                    targeted_considerations.push(consideration);
+                }
+                false => {
+                    simple_considerations.push(consideration);
+                }
+            });
+
+        let is_targeted = !targeted_considerations.is_empty();
+
         let decision = Decision {
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
-            considerations,
+            simple_considerations,
+            targeted_considerations,
+            is_targeted,
         };
 
-        // set initial input score
-        for consideration in &decision.considerations {
-            self.ai_meta
-                .input_scores
-                .insert(consideration.input, f32::NEG_INFINITY);
-        }
-
-        self.ai_meta.decisions.push(decision);
+        self.decisions.push(decision);
         self
     }
 
-    pub fn add_input<Q: WorldQuery>(mut self, input: fn(Query<Q>)) -> AIDefinition<T> {
-        self.ai_meta.input_scores.insert(input as usize, -1.0);
-        self
+    pub fn register(self, app: &mut App) {
+        app.init_resource::<AIDefinitions>();
+        app.add_system(ensure_entity_has_ai_meta::<T>);
+        let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
+        ai_definitions.map.insert(
+            TypeId::of::<T>(),
+            AIDefinition {
+                decisions: self.decisions,
+            },
+        );
     }
-
-    pub fn register(self, _commands: &mut Commands) -> AIDefinition<T> {
-        self
-    }
-
-    pub fn create_bundle(self) -> AIBundle<T> {
-        AIBundle {
-            ai_meta: self.ai_meta.clone(),
-            marker_component: self.component,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct Consideration {
-    pub input_name: String,
-    pub input: usize,
-    // could add a default behaviour at some point, e.g. IGNORE, DISQUALIFY, DEFAULT_VALUE
 }
 
 fn type_name_of<T>(_: T) -> &'static str {
-    std::any::type_name::<T>()
+    type_name::<T>()
+}
+
+pub struct Consideration {
+    pub input_name: String,
+    pub input: usize,
+    pub response_curve: Box<dyn ResponseCurve>,
+    pub is_targeted: bool,
 }
 
 impl Consideration {
-    pub fn new<Q: WorldQuery>(input: fn(Query<Q>)) -> Self {
+    pub fn simple<Q: WorldQuery>(input: fn(Query<Q>)) -> Self {
         Self {
             input_name: type_name_of(input).into(),
             input: input as usize,
+            response_curve: Box::new(LinearCurve::new(1.0)),
+            is_targeted: false,
         }
+    }
+
+    pub fn targeted<Q1: WorldQuery, Q2: WorldQuery>(input: fn(Query<Q1>, Query<Q2>)) -> Self {
+        Self {
+            input_name: type_name_of(input).into(),
+            input: input as usize,
+            response_curve: Box::new(LinearCurve::new(1.0)),
+            is_targeted: true,
+        }
+    }
+
+    pub fn with_response_curve(self, response_curve: impl ResponseCurve + 'static) -> Self {
+        Self {
+            response_curve: Box::new(response_curve),
+            ..self
+        }
+    }
+
+    pub fn set_input_name(self, input_name: String) -> Self {
+        Self { input_name, ..self }
     }
 }
 
-#[derive(Clone)]
 pub struct Decision {
     pub action_name: String,
     pub action: TypeId,
-    pub considerations: Vec<Consideration>,
-}
-
-impl Decision {
-    pub fn new<T: Component>(considerations: Vec<Consideration>) -> Self {
-        Self {
-            action_name: type_name::<T>().into(),
-            action: TypeId::of::<T>(),
-            considerations,
-        }
-    }
-}
-
-/// A Bevy bundle that can be used to add AI logic to your entity.
-/// These are not intended to be created manually.
-#[derive(Bundle)]
-pub struct AIBundle<T: Component> {
-    ai_meta: AIMeta,
-    marker_component: T,
+    pub simple_considerations: Vec<Consideration>,
+    pub targeted_considerations: Vec<Consideration>,
+    pub is_targeted: bool,
 }

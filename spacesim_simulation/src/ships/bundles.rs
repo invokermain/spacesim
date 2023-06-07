@@ -1,20 +1,23 @@
 use bevy::prelude::Bundle;
 
 use crate::common::marker_components::IsShip;
+use crate::ships::ai::ShipAI;
 
 use super::components::SystemCoordinates;
 
 #[derive(Bundle)]
 pub struct ShipBundle {
-    pub system_coordinates: SystemCoordinates,
-    pub marker: IsShip,
+    system_coordinates: SystemCoordinates,
+    ai: ShipAI,
+    marker: IsShip,
 }
 
 impl ShipBundle {
-    pub fn new(coordinates: SystemCoordinates) -> Self {
+    pub fn new(system_coordinates: SystemCoordinates) -> Self {
         Self {
-            system_coordinates: coordinates,
+            system_coordinates,
             marker: IsShip {},
+            ai: ShipAI {},
         }
     }
 }
