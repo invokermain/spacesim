@@ -1,9 +1,9 @@
 use std::any::TypeId;
 
 use bevy::prelude::{
-    debug, debug_span, Added, AppTypeRegistry, Changed, Commands, Component, Entity,
-    EventWriter, Events, IntoSystemConfig, IntoSystemSetConfig, Plugin, Query,
-    ReflectComponent, ReflectDefault, Res, SystemSet, World,
+    debug, debug_span, Added, AppTypeRegistry, Commands, Component, Entity, EventWriter,
+    Events, IntoSystemConfig, IntoSystemSetConfig, Plugin, Query, ReflectComponent,
+    ReflectDefault, Res, SystemSet, With, World,
 };
 use bevy::utils::HashMap;
 
@@ -25,7 +25,12 @@ pub struct UpdateEntityAction {
     new_target: Option<Entity>,
 }
 
-pub fn ensure_entity_has_ai_meta<T: Component>(
+pub(crate) fn filter_input<F: Component, const INCLUSIVE: bool>(
+    q: Query<(Entity, &mut AIMeta), With<F>>,
+) {
+}
+
+pub(crate) fn ensure_entity_has_ai_meta<T: Component>(
     mut commmads: Commands,
     query: Query<Entity, Added<T>>,
 ) {

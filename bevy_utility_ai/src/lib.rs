@@ -1,7 +1,11 @@
 pub mod ai_meta;
 pub mod response_curves;
 pub mod systems;
+use bevy::prelude::Res;
+use bevy::reflect::GetTypeRegistration;
+use bevy::utils::HashSet;
 pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
+use systems::filter_input;
 
 pub use crate::ai_meta::AIMeta;
 use crate::response_curves::{LinearCurve, ResponseCurve};
@@ -16,6 +20,7 @@ use std::marker::PhantomData;
 
 pub struct AIDefinition {
     pub decisions: Vec<Decision>,
+    pub required_inputs: HashSet<usize>,
 }
 
 #[derive(Resource, Default)]
@@ -35,6 +40,7 @@ pub struct ActionTarget {
 #[derive(Default)]
 pub struct DefineAI<T: Component> {
     decisions: Vec<Decision>,
+    required_inputs: HashSet<usize>,
     marker_phantom: PhantomData<T>,
 }
 
@@ -43,26 +49,28 @@ impl<T: Component> DefineAI<T> {
         Self {
             marker_phantom: PhantomData,
             decisions: Vec::new(),
+            required_inputs: HashSet::new(),
         }
     }
 
-    pub fn add_decision<C: Component>(
+    pub fn add_decision<C: Component + GetTypeRegistration>(
         mut self,
         considerations: Vec<Consideration>,
     ) -> DefineAI<T> {
         let mut simple_considerations = Vec::new();
         let mut targeted_considerations = Vec::new();
 
-        considerations
-            .into_iter()
-            .for_each(|consideration| match consideration.is_targeted {
+        considerations.into_iter().for_each(|consideration| {
+            self.required_inputs.insert(consideration.input);
+            match consideration.is_targeted {
                 true => {
                     targeted_considerations.push(consideration);
                 }
                 false => {
                     simple_considerations.push(consideration);
                 }
-            });
+            }
+        });
 
         let is_targeted = !targeted_considerations.is_empty();
 
@@ -86,6 +94,7 @@ impl<T: Component> DefineAI<T> {
             TypeId::of::<T>(),
             AIDefinition {
                 decisions: self.decisions,
+                required_inputs: self.required_inputs,
             },
         );
     }
@@ -103,7 +112,7 @@ pub struct Consideration {
 }
 
 impl Consideration {
-    pub fn simple<Q: WorldQuery>(input: fn(Query<Q>)) -> Self {
+    pub fn simple<Q: WorldQuery>(input: fn(Query<Q>, Res<AIDefinitions>)) -> Self {
         Self {
             input_name: type_name_of(input).into(),
             input: input as usize,
@@ -120,6 +129,16 @@ impl Consideration {
             is_targeted: true,
         }
     }
+
+    // pub fn filtered<F: Component>() -> Self {
+    //     let input = filter_input::<F> as usize;
+    //     Self {
+    //         input_name: type_name_of(input).into(),
+    //         input: input as usize,
+    //         response_curve: Box::new(LinearCurve::new(1.0)),
+    //         is_targeted: true,
+    //     }
+    // }
 
     pub fn with_response_curve(self, response_curve: impl ResponseCurve + 'static) -> Self {
         Self {

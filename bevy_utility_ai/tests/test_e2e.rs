@@ -9,10 +9,10 @@ use bevy::{
 use bevy_utility_ai::ai_meta::AIMeta;
 use bevy_utility_ai::response_curves::LinearCurve;
 use bevy_utility_ai::{
+    input_system,
     systems::{UtililityAISet, UtilityAIPlugin},
-    Consideration, DefineAI,
+    targeted_input_system, Consideration, DefineAI,
 };
-use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
 /// trivial case of two decisions with one consideration each.
@@ -86,6 +86,91 @@ fn simple_considerations_trivial() {
 
     assert_eq!(ai_meta.current_action_score, 0.75);
     assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionTwo>()));
+}
+
+/// This test checks that the framework does calculate inputs for entities that
+/// do not require it
+#[test]
+fn calculate_inputs_calculates_only_for_required_entities() {
+    // SETUP
+    #[input_system]
+    fn utility_input_1(some_data: &SomeData) -> f32 {
+        some_data.val
+    }
+
+    #[input_system]
+    fn utility_input_2(some_data: &SomeData) -> f32 {
+        some_data.val
+    }
+
+    // Marker components for our AI systems
+    #[derive(Component)]
+    pub struct AI1 {}
+
+    #[derive(Component)]
+    pub struct AI2 {}
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component, Default)]
+    struct ActionOne {}
+
+    #[derive(Component)]
+    struct SomeData {
+        val: f32,
+    }
+    // END SETUP
+
+    let mut app = App::new();
+
+    app.add_plugin(LogPlugin {
+        filter: "debug,bevy_utility_ai=debug".into(),
+        level: bevy::log::Level::DEBUG,
+    });
+    app.add_plugin(UtilityAIPlugin);
+
+    DefineAI::<AI1>::new()
+        .add_decision::<ActionOne>(vec![
+            Consideration::simple(utility_input_1).set_input_name("utility_input_1".into())
+        ])
+        .register(&mut app);
+
+    DefineAI::<AI2>::new()
+        .add_decision::<ActionOne>(vec![
+            Consideration::simple(utility_input_2).set_input_name("utility_input_2".into())
+        ])
+        .register(&mut app);
+
+    app.register_type::<ActionOne>();
+    app.add_system(utility_input_1.in_set(UtililityAISet::CalculateInputs));
+    app.add_system(utility_input_2.in_set(UtililityAISet::CalculateInputs));
+
+    let entity_1 = app
+        .world
+        .spawn((SomeData { val: 1.0 }, AI1 {}, AIMeta::new::<AI1>()))
+        .id();
+    let entity_2 = app
+        .world
+        .spawn((SomeData { val: 2.0 }, AI2 {}, AIMeta::new::<AI2>()))
+        .id();
+
+    app.update();
+
+    let ai_meta_1 = app.world.get::<AIMeta>(entity_1).unwrap();
+    let ai_meta_2 = app.world.get::<AIMeta>(entity_2).unwrap();
+
+    assert!(ai_meta_1
+        .input_scores
+        .contains_key(&(utility_input_1 as usize)));
+    assert!(!ai_meta_1
+        .input_scores
+        .contains_key(&(utility_input_2 as usize)));
+
+    assert!(!ai_meta_2
+        .input_scores
+        .contains_key(&(utility_input_1 as usize)));
+    assert!(ai_meta_2
+        .input_scores
+        .contains_key(&(utility_input_2 as usize)));
 }
 
 /// This test checks whether the framework correctly chooses the highest scoring decision in the

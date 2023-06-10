@@ -1,5 +1,5 @@
 use bevy::prelude::{Component, Entity};
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::HashMap;
 use std::any::TypeId;
 
 /// A Component which stores all the required state to run the AI Systems.

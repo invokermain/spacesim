@@ -1,5 +1,4 @@
-use bevy::math::Vec3;
-use bevy::prelude::{App, IntoSystemConfig, Query, With, Without};
+use bevy::prelude::{App, IntoSystemConfig};
 use bevy::{
     prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
@@ -7,10 +6,12 @@ use bevy::{
 
 use bevy_utility_ai::response_curves::LinearCurve;
 use bevy_utility_ai::systems::UtililityAISet;
-use bevy_utility_ai::{targeted_input_system, ActionTarget, Consideration, DefineAI};
+use bevy_utility_ai::{input_system, targeted_input_system, Consideration, DefineAI};
 
 use crate::common::marker_components::IsPlanet;
+use crate::planet::components::OnPlanet;
 
+use super::actions::travel_to_planet;
 use super::components::SystemCoordinates;
 
 // Marker component for our AI system
@@ -19,7 +20,7 @@ pub struct ShipAI {}
 
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
-pub struct ActionTravellingTo {}
+pub struct ActionMoveToPlanet {}
 
 #[targeted_input_system]
 pub(crate) fn distance_to_planet(
@@ -29,30 +30,15 @@ pub(crate) fn distance_to_planet(
     subject.0.value.distance(target.0.value)
 }
 
-// TODO: what if the target is also a ship that's travelling somewhere?
-pub(crate) fn travel_to(
-    mut q_subject: Query<(&mut SystemCoordinates, &ActionTarget), With<ActionTravellingTo>>,
-    q_target: Query<&SystemCoordinates, Without<ActionTravellingTo>>,
-) {
-    for (mut subject_coors, target_entity) in q_subject.iter_mut() {
-        if let Ok(target_coords) = q_target.get(target_entity.target) {
-            let travel_vector: Vec3 = target_coords.value - subject_coors.value;
-            subject_coors.value += travel_vector.normalize() * 25_000.0;
-        }
-    }
-}
-
 pub(super) fn define_ship_ai(app: &mut App) {
     DefineAI::<ShipAI>::new()
-        .add_decision::<ActionTravellingTo>(vec![Consideration::targeted(distance_to_planet)
+        .add_decision::<ActionMoveToPlanet>(vec![Consideration::targeted(distance_to_planet)
             .with_response_curve(LinearCurve::new(-1.0 / 75_000_000.0).shifted(0.0, 1.0))
             .set_input_name("distance_to_planet".into())])
         .register(app);
 
-    app.register_type::<ActionTravellingTo>();
+    app.register_type::<ActionMoveToPlanet>();
     app.add_system(distance_to_planet.in_set(UtililityAISet::CalculateInputs));
-
-    app.add_system(travel_to);
 }
 
 // Actions
