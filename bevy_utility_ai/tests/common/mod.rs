@@ -1,3 +1,5 @@
+pub mod app;
+
 use bevy::prelude::{Component, Reflect, ReflectComponent, ReflectDefault, Vec2};
 
 // Some Components

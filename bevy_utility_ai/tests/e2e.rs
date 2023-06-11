@@ -1,11 +1,10 @@
 mod common;
 
-use bevy::log::LogPlugin;
 use std::any::TypeId;
 
+use crate::common::app::test_app;
 use crate::common::{ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AI, AI1, AI2};
-use bevy::prelude::{App, IntoSystemConfig};
-use bevy::prelude::{Entity, Vec2};
+use bevy::prelude::{Entity, IntoSystemConfig, Vec2};
 use bevy_utility_ai::ai_meta::AIMeta;
 use bevy_utility_ai::considerations::Consideration;
 use bevy_utility_ai::define_ai::DefineAI;
@@ -28,12 +27,8 @@ fn simple_considerations_trivial() {
         some_other_data.val
     }
 
-    let mut app = App::new();
+    let mut app = test_app();
     app.add_plugin(UtilityAIPlugin);
-    app.add_plugin(LogPlugin {
-        filter: "wgpu=error".into(),
-        level: bevy::log::Level::DEBUG,
-    });
 
     DefineAI::<AI>::new()
         .add_decision::<ActionOne>(vec![Consideration::simple(utility_input_low)])
@@ -80,12 +75,8 @@ fn calculate_inputs_calculates_only_for_required_entities() {
         some_data.val
     }
 
-    let mut app = App::new();
+    let mut app = test_app();
     app.add_plugin(UtilityAIPlugin);
-    app.add_plugin(LogPlugin {
-        filter: "wgpu=error".into(),
-        level: bevy::log::Level::DEBUG,
-    });
 
     DefineAI::<AI1>::new()
         .add_decision::<ActionOne>(vec![
@@ -144,12 +135,8 @@ fn targeted_trivial() {
         subject.0.val.distance(target.0.val)
     }
 
-    let mut app = App::new();
+    let mut app = test_app();
     app.add_plugin(UtilityAIPlugin);
-    app.add_plugin(LogPlugin {
-        filter: "wgpu=error".into(),
-        level: bevy::log::Level::DEBUG,
-    });
 
     DefineAI::<AI>::new()
         .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input)
@@ -210,11 +197,7 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
         subject.0.val.distance(target.0.val)
     }
 
-    let mut app = App::new();
-    app.add_plugin(LogPlugin {
-        filter: "wgpu=error".into(),
-        level: bevy::log::Level::DEBUG,
-    });
+    let mut app = test_app();
 
     DefineAI::<AI1>::new()
         .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input_1)

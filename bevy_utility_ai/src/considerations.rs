@@ -10,7 +10,7 @@ fn type_name_of<T>(_: T) -> &'static str {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub(crate) enum ConsiderationType {
+pub enum ConsiderationType {
     Simple,
     Targeted,
     TargetedFilter,
