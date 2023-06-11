@@ -1,18 +1,17 @@
+mod common;
+
+use bevy::log::LogPlugin;
 use std::any::TypeId;
 
+use crate::common::{ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AI, AI1, AI2};
+use bevy::prelude::{App, IntoSystemConfig};
 use bevy::prelude::{Entity, Vec2};
-use bevy::{
-    log::LogPlugin,
-    prelude::{App, Component, IntoSystemConfig, ReflectComponent, ReflectDefault},
-    reflect::Reflect,
-};
 use bevy_utility_ai::ai_meta::AIMeta;
+use bevy_utility_ai::considerations::Consideration;
+use bevy_utility_ai::define_ai::DefineAI;
+use bevy_utility_ai::plugin::{UtililityAISet, UtilityAIPlugin};
 use bevy_utility_ai::response_curves::LinearCurve;
-use bevy_utility_ai::{
-    input_system,
-    systems::{UtililityAISet, UtilityAIPlugin},
-    targeted_input_system, Consideration, DefineAI,
-};
+use bevy_utility_ai::{input_system, targeted_input_system};
 
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
 /// trivial case of two decisions with one consideration each.
@@ -29,36 +28,12 @@ fn simple_considerations_trivial() {
         some_other_data.val
     }
 
-    // Marker component for our AI system
-    #[derive(Component)]
-    pub struct AI {}
-
-    #[derive(Component, Reflect, Default)]
-    #[reflect(Component, Default)]
-    struct ActionOne {}
-
-    #[derive(Component, Reflect, Default)]
-    #[reflect(Component, Default)]
-    struct ActionTwo {}
-
-    #[derive(Component)]
-    struct SomeData {
-        val: f32,
-    }
-
-    #[derive(Component)]
-    struct SomeOtherData {
-        val: f32,
-    }
-    // END SETUP
-
     let mut app = App::new();
-
+    app.add_plugin(UtilityAIPlugin);
     app.add_plugin(LogPlugin {
-        filter: "info,bevy_utility_ai=debug".into(),
+        filter: "wgpu=error".into(),
         level: bevy::log::Level::DEBUG,
     });
-    app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI>::new()
         .add_decision::<ActionOne>(vec![Consideration::simple(utility_input_low)])
@@ -80,6 +55,8 @@ fn simple_considerations_trivial() {
         ))
         .id();
 
+    // Double update so that calculate inputs & make decisions runs
+    app.update();
     app.update();
 
     let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
@@ -88,7 +65,7 @@ fn simple_considerations_trivial() {
     assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionTwo>()));
 }
 
-/// This test checks that the framework does calculate inputs for entities that
+/// This test checks that the framework does not calculate inputs for entities that
 /// do not require it
 #[test]
 fn calculate_inputs_calculates_only_for_required_entities() {
@@ -103,30 +80,12 @@ fn calculate_inputs_calculates_only_for_required_entities() {
         some_data.val
     }
 
-    // Marker components for our AI systems
-    #[derive(Component)]
-    pub struct AI1 {}
-
-    #[derive(Component)]
-    pub struct AI2 {}
-
-    #[derive(Component, Reflect, Default)]
-    #[reflect(Component, Default)]
-    struct ActionOne {}
-
-    #[derive(Component)]
-    struct SomeData {
-        val: f32,
-    }
-    // END SETUP
-
     let mut app = App::new();
-
+    app.add_plugin(UtilityAIPlugin);
     app.add_plugin(LogPlugin {
-        filter: "debug,bevy_utility_ai=debug".into(),
+        filter: "wgpu=error".into(),
         level: bevy::log::Level::DEBUG,
     });
-    app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI1>::new()
         .add_decision::<ActionOne>(vec![
@@ -153,6 +112,8 @@ fn calculate_inputs_calculates_only_for_required_entities() {
         .spawn((SomeData { val: 2.0 }, AI2 {}, AIMeta::new::<AI2>()))
         .id();
 
+    // Double update so that calculate inputs & make decisions runs
+    app.update();
     app.update();
 
     let ai_meta_1 = app.world.get::<AIMeta>(entity_1).unwrap();
@@ -183,31 +144,12 @@ fn targeted_trivial() {
         subject.0.val.distance(target.0.val)
     }
 
-    // Marker component for our AI system
-    #[derive(Component)]
-    pub struct AI {}
-
-    // Marker component for our targets
-    #[derive(Component)]
-    pub struct Target {}
-
-    #[derive(Component, Reflect, Default)]
-    #[reflect(Component, Default)]
-    struct ActionOne {}
-
-    #[derive(Component)]
-    struct Position {
-        val: Vec2,
-    }
-    // END SETUP
-
     let mut app = App::new();
-
+    app.add_plugin(UtilityAIPlugin);
     app.add_plugin(LogPlugin {
-        filter: "info,bevy_utility_ai=debug".into(),
+        filter: "wgpu=error".into(),
         level: bevy::log::Level::DEBUG,
     });
-    app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI>::new()
         .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input)
@@ -233,21 +175,17 @@ fn targeted_trivial() {
     let target_entitites = app
         .world
         .spawn_batch(vec![
-            (
-                Target {},
-                Position {
-                    val: Vec2::new(0., 0.),
-                },
-            ),
-            (
-                Target {},
-                Position {
-                    val: Vec2::new(1., 1.),
-                },
-            ),
+            (Position {
+                val: Vec2::new(0., 0.),
+            },),
+            (Position {
+                val: Vec2::new(1., 1.),
+            },),
         ])
         .collect::<Vec<Entity>>();
 
+    // Double update so that calculate inputs & make decisions runs
+    app.update();
     app.update();
 
     let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
@@ -255,4 +193,79 @@ fn targeted_trivial() {
     // assert that we are targeting the closest target
     assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionOne>()));
     assert_eq!(ai_meta.current_target, Some(target_entitites[1]));
+}
+
+/// This test checks that the framework does not calculate targeted inputs for entities that
+/// do not require it
+#[test]
+fn calculate_targeted_inputs_calculates_only_for_required_entities() {
+    // SETUP
+    #[targeted_input_system]
+    fn targeted_utility_input_1(subject: (&Position,), target: (&Position,)) -> f32 {
+        subject.0.val.distance(target.0.val)
+    }
+
+    #[targeted_input_system]
+    fn targeted_utility_input_2(subject: (&Position,), target: (&Position,)) -> f32 {
+        subject.0.val.distance(target.0.val)
+    }
+
+    let mut app = App::new();
+    app.add_plugin(LogPlugin {
+        filter: "wgpu=error".into(),
+        level: bevy::log::Level::DEBUG,
+    });
+
+    DefineAI::<AI1>::new()
+        .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input_1)
+            .set_input_name("targeted_utility_input_1".into())])
+        .register(&mut app);
+
+    DefineAI::<AI2>::new()
+        .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input_2)
+            .set_input_name("targeted_utility_input_2".into())])
+        .register(&mut app);
+
+    app.add_system(targeted_utility_input_1);
+    app.add_system(targeted_utility_input_2);
+
+    let entity_1 = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(1.0, 1.0),
+            },
+            AI1 {},
+            AIMeta::new::<AI1>(),
+        ))
+        .id();
+    let entity_2 = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(0.0, 0.0),
+            },
+            AI2 {},
+            AIMeta::new::<AI2>(),
+        ))
+        .id();
+
+    app.update();
+
+    let ai_meta_1 = app.world.get::<AIMeta>(entity_1).unwrap();
+    let ai_meta_2 = app.world.get::<AIMeta>(entity_2).unwrap();
+
+    assert!(ai_meta_1
+        .targeted_input_scores
+        .contains_key(&(targeted_utility_input_1 as usize)));
+    assert!(!ai_meta_1
+        .targeted_input_scores
+        .contains_key(&(targeted_utility_input_2 as usize)));
+
+    assert!(!ai_meta_2
+        .targeted_input_scores
+        .contains_key(&(targeted_utility_input_1 as usize)));
+    assert!(ai_meta_2
+        .targeted_input_scores
+        .contains_key(&(targeted_utility_input_2 as usize)));
 }

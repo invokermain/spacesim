@@ -3,10 +3,12 @@ use bevy::{
     prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
 };
+use bevy_utility_ai::considerations::Consideration;
 
+use bevy_utility_ai::define_ai::DefineAI;
+use bevy_utility_ai::plugin::UtililityAISet;
 use bevy_utility_ai::response_curves::LinearCurve;
-use bevy_utility_ai::systems::UtililityAISet;
-use bevy_utility_ai::{input_system, targeted_input_system, Consideration, DefineAI};
+use bevy_utility_ai::targeted_input_system;
 
 use crate::common::marker_components::IsPlanet;
 use crate::planet::components::OnPlanet;

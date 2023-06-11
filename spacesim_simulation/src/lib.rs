@@ -5,7 +5,7 @@ pub mod ships;
 mod worldgen;
 
 use bevy::prelude::{App, Plugin};
-use bevy_utility_ai::systems::UtilityAIPlugin;
+use bevy_utility_ai::plugin::UtilityAIPlugin;
 use economy::plugin::EconomySimulationPlugin;
 use planet::plugin::AstralBodySimulationPlugin;
 use ships::plugin::ShipSimulationPlugin;

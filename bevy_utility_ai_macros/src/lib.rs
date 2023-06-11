@@ -1,5 +1,4 @@
 mod input_system;
-mod target_selector;
 mod targeted_input_system;
 
 use proc_macro::TokenStream;

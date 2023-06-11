@@ -12,6 +12,7 @@ pub(crate) fn targeted_input_system(
     };
 
     let name = item_fn.sig.ident;
+    let quoted_name = format!("{}", name);
 
     if item_fn.sig.inputs.len() != 2 {
         return Err(Error::new_spanned(
@@ -33,17 +34,30 @@ pub(crate) fn targeted_input_system(
     let output = quote! {
         fn #name(
             mut q_subject: bevy::prelude::Query<(bevy::prelude::Entity, &mut bevy_utility_ai::AIMeta #(, &#subject_arg_types)*)>,
-            q_target: bevy::prelude::Query<(bevy::prelude::Entity #(, &#target_arg_types)*)>
+            q_target: bevy::prelude::Query<(bevy::prelude::Entity #(, &#target_arg_types)*)>,
+            res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>
         ) {
+            let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
             let key = #name as usize;
 
             for (subject_entity_id, mut ai_meta #(, #subject_arg_names)*) in q_subject.iter_mut() {
+                let _span = bevy::prelude::debug_span!("", entity = subject_entity_id.index()).entered();
+
+                let is_required = res_ai_definitions
+                    .map[&ai_meta.ai_definition]
+                    .required_inputs
+                    .contains(&key);
+                if !is_required {
+                    bevy::prelude::debug!("skipped calculating inputs for this entity");
+                    continue;
+                }
                 let score_map = ai_meta
                     .targeted_input_scores
                     .entry(key)
                     .or_insert(bevy::utils::HashMap::new());
                 let #subject_ident = (#(#subject_arg_names, )*);
                 for (entity_id #(, #target_arg_names)*) in q_target.iter() {
+                    let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
                     if entity_id == subject_entity_id {
                         continue;
                     }
@@ -51,6 +65,7 @@ pub(crate) fn targeted_input_system(
                     let score =  #body;
                     let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
                     *entry = score;
+                    bevy::prelude::debug!("score {:.2}", score);
                 }
             }
         }
