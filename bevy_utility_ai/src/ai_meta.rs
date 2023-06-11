@@ -1,5 +1,5 @@
 use bevy::prelude::{Component, Entity};
-use bevy::utils::HashMap;
+use bevy::utils::{HashMap, HashSet};
 use std::any::TypeId;
 
 /// A Component which stores all the required state to run the AI Systems.
@@ -7,6 +7,7 @@ use std::any::TypeId;
 pub struct AIMeta {
     pub ai_definition: TypeId,
     pub input_scores: HashMap<usize, f32>,
+    pub valid_target_set: Option<HashSet<Entity>>,
     pub targeted_input_scores: HashMap<usize, HashMap<Entity, f32>>,
     pub current_action: Option<TypeId>,
     pub current_action_score: f32,
@@ -19,6 +20,7 @@ impl AIMeta {
         Self {
             ai_definition: TypeId::of::<T>(),
             input_scores: HashMap::default(),
+            valid_target_set: None,
             targeted_input_scores: HashMap::default(),
             current_action_score: -1.0,
             current_action: None,

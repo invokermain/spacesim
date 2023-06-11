@@ -6,6 +6,7 @@ pub(crate) use update_action::update_action;
 use std::any::TypeId;
 
 use bevy::prelude::{Added, Commands, Component, Entity, Query, With, Without};
+use bevy::utils::hashbrown::HashSet;
 
 use crate::ai_meta::AIMeta;
 
@@ -16,24 +17,25 @@ pub struct UpdateEntityAction {
     old_target: Option<Entity>,
     new_target: Option<Entity>,
 }
-//
-// pub(crate) fn filter_input<F: Component>(
-//     mut q_subject: Query<&mut AIMeta>,
-//     q_target: Query<Entity, With<F>>,
-// ) {
-//     for mut ai_meta in q_subject.iter_mut() {
-//         if ai_meta.ai_definition
-//         for (entity_id, p0) in q_target.iter() {
-//             if entity_id == subject_entity_id {
-//                 continue;
-//             }
-//             let target = (p0,);
-//             let score = { subject.0.val.distance(target.0.val) };
-//             let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
-//             *entry = score;
-//         }
-//     }
-// }
+
+pub(crate) fn inclusive_filter_input<F: Component>(
+    mut q_subject: Query<&mut AIMeta>,
+    q_target: Query<Entity, With<F>>,
+) {
+    for mut ai_meta in q_subject.iter_mut() {
+        match &mut ai_meta.valid_target_set {
+            // None implies all entities are valid targets
+            None => {
+                ai_meta.valid_target_set =
+                    Some(HashSet::from_iter(q_target.iter().collect::<Vec<Entity>>()))
+            }
+            // Some implies only entities in set are valid targets
+            Some(target_set) => {
+                target_set.drain_filter(|&entity| !q_target.contains(entity));
+            }
+        }
+    }
+}
 
 pub(crate) fn ensure_entity_has_ai_meta<T: Component>(
     mut commmads: Commands,

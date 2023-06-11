@@ -1,4 +1,4 @@
-use crate::considerations::Consideration;
+use crate::considerations::{Consideration, ConsiderationType};
 use crate::systems::ensure_entity_has_ai_meta;
 use crate::{AIDefinition, AIDefinitions, Decision};
 use bevy::app::App;
@@ -31,19 +31,25 @@ impl<T: Component> DefineAI<T> {
         considerations: Vec<Consideration>,
     ) -> DefineAI<T> {
         let mut simple_considerations = Vec::new();
+        let mut targeted_filter_considerations = Vec::new();
         let mut targeted_considerations = Vec::new();
 
         considerations.into_iter().for_each(|consideration| {
             self.required_inputs.insert(consideration.input);
-            match consideration.is_targeted {
-                true => {
-                    targeted_considerations.push(consideration);
-                }
-                false => {
-                    simple_considerations.push(consideration);
+            match consideration.consideration_type {
+                ConsiderationType::Simple => simple_considerations.push(consideration),
+                ConsiderationType::Targeted => targeted_considerations.push(consideration),
+                ConsiderationType::TargetedFilter => {
+                    targeted_filter_considerations.push(consideration)
                 }
             }
         });
+
+        if !targeted_filter_considerations.is_empty() && targeted_considerations.is_empty() {
+            panic!(
+                "Decisions that have Consideration::targeted_filter considerations without any \
+                Consideration::targeted considerations are invalid!")
+        }
 
         let is_targeted = !targeted_considerations.is_empty();
 
