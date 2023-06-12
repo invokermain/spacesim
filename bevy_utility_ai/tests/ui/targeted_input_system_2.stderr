@@ -1,0 +1,5 @@
+error: Function must have an input named 'target'
+ --> tests/ui/targeted_input_system_2.rs:4:26
+  |
+4 | fn simple_targeted_input(subject: (&SomeData,)) -> f32 {
+  |                          ^^^^^^^^^^^^^^^^^^^^^

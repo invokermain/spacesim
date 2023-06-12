@@ -252,3 +252,63 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
         .targeted_input_scores
         .contains_key(&(targeted_utility_input_2 as usize)));
 }
+
+// /// Confirm that targeted input systems respects the valid_target_set
+// #[test]
+// fn calculate_targeted_inputs_calculates_only_for_entities_within_the_valid_target_set() {
+//     // SETUP
+//     #[targeted_input_system]
+//     fn targeted_utility_input_1(subject: (&Position,), target: (&Position,)) -> f32 {
+//         subject.0.val.distance(target.0.val)
+//     }
+//
+//     let mut app = test_app();
+//
+//     DefineAI::<AI1>::new()
+//         .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input_1)
+//             .set_input_name("targeted_utility_input_1".into())])
+//         .register(&mut app);
+//
+//     app.add_system(targeted_utility_input_1);
+//     app.add_system(targeted_utility_input_2);
+//
+//     let entity_1 = app
+//         .world
+//         .spawn((
+//             Position {
+//                 val: Vec2::new(1.0, 1.0),
+//             },
+//             AI1 {},
+//             AIMeta::new::<AI1>(),
+//         ))
+//         .id();
+//     let entity_2 = app
+//         .world
+//         .spawn((
+//             Position {
+//                 val: Vec2::new(0.0, 0.0),
+//             },
+//             AI2 {},
+//             AIMeta::new::<AI2>(),
+//         ))
+//         .id();
+//
+//     app.update();
+//
+//     let ai_meta_1 = app.world.get::<AIMeta>(entity_1).unwrap();
+//     let ai_meta_2 = app.world.get::<AIMeta>(entity_2).unwrap();
+//
+//     assert!(ai_meta_1
+//         .targeted_input_scores
+//         .contains_key(&(targeted_utility_input_1 as usize)));
+//     assert!(!ai_meta_1
+//         .targeted_input_scores
+//         .contains_key(&(targeted_utility_input_2 as usize)));
+//
+//     assert!(!ai_meta_2
+//         .targeted_input_scores
+//         .contains_key(&(targeted_utility_input_1 as usize)));
+//     assert!(ai_meta_2
+//         .targeted_input_scores
+//         .contains_key(&(targeted_utility_input_2 as usize)));
+// }
