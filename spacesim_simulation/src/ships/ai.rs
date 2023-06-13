@@ -39,7 +39,6 @@ pub(super) fn define_ship_ai(app: &mut App) {
             .set_input_name("distance_to_planet".into())])
         .register(app);
 
-    app.register_type::<ActionMoveToPlanet>();
     app.add_system(distance_to_planet.in_set(UtililityAISet::CalculateInputs));
 }
 

@@ -35,8 +35,6 @@ fn simple_considerations_trivial() {
         .add_decision::<ActionTwo>(vec![Consideration::simple(utility_input_high)])
         .register(&mut app);
 
-    app.register_type::<ActionOne>();
-    app.register_type::<ActionTwo>();
     app.add_system(utility_input_low.in_set(UtililityAISet::CalculateInputs));
     app.add_system(utility_input_high.in_set(UtililityAISet::CalculateInputs));
 
@@ -90,7 +88,6 @@ fn calculate_inputs_calculates_only_for_required_entities() {
         ])
         .register(&mut app);
 
-    app.register_type::<ActionOne>();
     app.add_system(utility_input_1.in_set(UtililityAISet::CalculateInputs));
     app.add_system(utility_input_2.in_set(UtililityAISet::CalculateInputs));
 
@@ -143,8 +140,6 @@ fn targeted_trivial() {
             .with_response_curve(LinearCurve::new(-1.0).shifted(0.0, 1.0))
             .set_input_name("targeted_utility_input".into())])
         .register(&mut app);
-
-    app.register_type::<ActionOne>();
 
     app.add_system(targeted_utility_input.in_set(UtililityAISet::CalculateInputs));
 
