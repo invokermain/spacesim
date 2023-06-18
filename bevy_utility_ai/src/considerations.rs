@@ -1,6 +1,6 @@
 use crate::response_curves::{LinearCurve, ResponseCurve};
 use crate::systems::inclusive_filter_input;
-use crate::AIDefinitions;
+use crate::{AIDefinitions, AITargetEntitySets};
 use bevy::ecs::query::WorldQuery;
 use bevy::prelude::{Component, Query, Res};
 use std::any::type_name;
@@ -34,7 +34,7 @@ impl Consideration {
     }
 
     pub fn targeted<Q1: WorldQuery, Q2: WorldQuery>(
-        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>),
+        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, Res<AITargetEntitySets>),
     ) -> Self {
         Self {
             input_name: type_name_of(input).into(),

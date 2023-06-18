@@ -5,10 +5,10 @@ pub(crate) use update_action::update_action;
 
 use std::any::TypeId;
 
-use bevy::prelude::{Added, Commands, Component, Entity, Query, With, Without};
-use bevy::utils::hashbrown::HashSet;
+use bevy::prelude::{Added, Commands, Component, Entity, Query, ResMut};
 
 use crate::ai_meta::AIMeta;
+use crate::AITargetEntitySets;
 
 pub struct UpdateEntityAction {
     entity_id: Entity,
@@ -18,25 +18,18 @@ pub struct UpdateEntityAction {
     new_target: Option<Entity>,
 }
 
+// TODO: add system that watches for component removal
 pub(crate) fn inclusive_filter_input<F: Component>(
-    mut q_subject: Query<&mut AIMeta>,
-    q_target: Query<Entity, With<F>>,
+    q_added: Query<Entity, Added<F>>,
+    mut res_target_filter_sets: ResMut<AITargetEntitySets>,
 ) {
-    for mut ai_meta in q_subject.iter_mut() {
-        match &mut ai_meta.valid_target_set {
-            // None implies all entities are valid targets
-            None => {
-                ai_meta.valid_target_set =
-                    Some(HashSet::from_iter(q_target.iter().collect::<Vec<Entity>>()))
-            }
-            // Some implies only entities in set are valid targets
-            Some(target_set) => {
-                target_set.drain_filter(|&entity| !q_target.contains(entity));
-            }
-        }
+    let key = inclusive_filter_input::<F> as usize;
+    for added_entity in q_added.iter() {
+        res_target_filter_sets.insert(key, added_entity);
     }
 }
 
+// TODO: add system that watches for component removal
 pub(crate) fn ensure_entity_has_ai_meta<T: Component>(
     mut commmads: Commands,
     query: Query<(Entity, Option<&AIMeta>), Added<T>>,

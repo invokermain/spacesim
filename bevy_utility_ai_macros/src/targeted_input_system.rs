@@ -100,7 +100,8 @@ pub(crate) fn targeted_input_system(
         fn #name(
             mut q_subject: bevy::prelude::Query<(bevy::prelude::Entity, &mut bevy_utility_ai::AIMeta #(, &#subject_arg_types)*)>,
             q_target: bevy::prelude::Query<(bevy::prelude::Entity #(, &#target_arg_types)*)>,
-            res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>
+            res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>,
+            res_ai_target_entity_sets: bevy::prelude::Res<bevy_utility_ai::AITargetEntitySets>
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
             let key = #name as usize;
@@ -115,7 +116,28 @@ pub(crate) fn targeted_input_system(
                 if !is_required {
                     bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
-                }
+                };
+
+                // Vec<usize> representing the filter sets this system should care about
+                let targeted_input_filter_sets = res_ai_definitions
+                    .map[&ai_meta.ai_definition]
+                    .targeted_input_filter_sets.get(&key);
+
+                let target_entities = match targeted_input_filter_sets {
+                    // Some implies that this system should only evaluate for a limited set of entities
+                    Some(target_entity_sets) => {
+                        Some(target_entity_sets
+                            .iter()
+                            .map(|&set_key| res_ai_target_entity_sets.get(set_key))
+                            .flatten()
+                            .collect::<Vec<bevy::prelude::Entity>>()
+                        )
+                    },
+                    // None implies we should check all entities
+                    None => None
+                };
+
+
                 let score_map = ai_meta
                     .targeted_input_scores
                     .entry(key)
@@ -123,16 +145,31 @@ pub(crate) fn targeted_input_system(
 
                 #subject_data_line
 
-                for (entity_id #(, #target_arg_names)*) in q_target.iter() {
-                    let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
-                    if entity_id == subject_entity_id {
-                        continue;
+                if let Some(target_entities) = target_entities {
+                    for &target_entity in &target_entities {
+                        let (entity_id #(, #target_arg_names)*) = q_target.get(target_entity).unwrap();
+                        let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
+                        if entity_id == subject_entity_id {
+                            continue;
+                        }
+                        let #target_ident = (#(#target_arg_names, )*);
+                        let score =  #body;
+                        let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
+                        *entry = score;
+                        bevy::prelude::debug!("score {:.2}", score);
                     }
-                    let #target_ident = (#(#target_arg_names, )*);
-                    let score =  #body;
-                    let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
-                    *entry = score;
-                    bevy::prelude::debug!("score {:.2}", score);
+                } else {
+                    for (entity_id #(, #target_arg_names)*) in q_target.iter() {
+                        let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
+                        if entity_id == subject_entity_id {
+                            continue;
+                        }
+                        let #target_ident = (#(#target_arg_names, )*);
+                        let score =  #body;
+                        let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
+                        *entry = score;
+                        bevy::prelude::debug!("score {:.2}", score);
+                    }
                 }
             }
         }

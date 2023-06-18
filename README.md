@@ -4,6 +4,4 @@
 
 ## TODO:
 
-- Consideration Filters should be defined on the Decision level and not as a consideration.
-  - AIDefinition should have a  
-  - The system they add should update the AIDefinition for the given target 
+- Target filter sets require removal detection

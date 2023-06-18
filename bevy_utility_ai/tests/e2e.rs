@@ -31,8 +31,10 @@ fn simple_considerations_trivial() {
     app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI>::new()
-        .add_decision::<ActionOne>(vec![Consideration::simple(utility_input_low)])
-        .add_decision::<ActionTwo>(vec![Consideration::simple(utility_input_high)])
+        .add_decision::<ActionOne>(vec![Consideration::simple(utility_input_low)
+            .set_input_name("utility_input_low".into())])
+        .add_decision::<ActionTwo>(vec![Consideration::simple(utility_input_high)
+            .set_input_name("utility_input_high".into())])
         .register(&mut app);
 
     app.add_system(utility_input_low.in_set(UtililityAISet::CalculateInputs));
@@ -193,6 +195,7 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
     }
 
     let mut app = test_app();
+    app.add_plugin(UtilityAIPlugin);
 
     DefineAI::<AI1>::new()
         .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input_1)
@@ -204,8 +207,8 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
             .set_input_name("targeted_utility_input_2".into())])
         .register(&mut app);
 
-    app.add_system(targeted_utility_input_1);
-    app.add_system(targeted_utility_input_2);
+    app.add_system(targeted_utility_input_1.in_set(UtililityAISet::CalculateInputs));
+    app.add_system(targeted_utility_input_2.in_set(UtililityAISet::CalculateInputs));
 
     let entity_1 = app
         .world

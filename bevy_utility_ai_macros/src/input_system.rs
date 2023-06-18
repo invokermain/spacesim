@@ -71,7 +71,7 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
                     .required_inputs
                     .contains(&key);
                 if !is_required {
-                    bevy::prelude::debug!("skipped entity");
+                    bevy::prelude::debug!("skipped as does not require this input");
                     continue;
                 }
 

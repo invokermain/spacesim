@@ -4,7 +4,7 @@ use crate::{AIDefinition, AIDefinitions, Decision};
 use bevy::app::{App, AppTypeRegistry};
 use bevy::prelude::Component;
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
-use bevy::utils::HashSet;
+use bevy::utils::{HashMap, HashSet};
 use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
 
@@ -15,6 +15,8 @@ pub struct DefineAI<T: Component> {
     decisions: Vec<Decision>,
     required_inputs: HashSet<usize>,
     action_type_registrations: Vec<TypeRegistration>,
+    /// A map of targeted_input system to the filter sets required for it
+    targeted_input_filter_sets: HashMap<usize, Vec<usize>>,
     marker_phantom: PhantomData<T>,
 }
 
@@ -25,6 +27,7 @@ impl<T: Component> DefineAI<T> {
             decisions: Vec::new(),
             required_inputs: HashSet::new(),
             action_type_registrations: Vec::new(),
+            targeted_input_filter_sets: HashMap::new(),
         }
     }
 
@@ -36,10 +39,9 @@ impl<T: Component> DefineAI<T> {
         let mut simple_considerations = Vec::new();
         let mut targeted_filter_considerations = Vec::new();
         let mut targeted_considerations = Vec::new();
-        let mut required_inputs = Vec::new();
 
         considerations.into_iter().for_each(|consideration| {
-            // required_inputs.push(consideration.input);
+            self.required_inputs.insert(consideration.input);
             match consideration.consideration_type {
                 ConsiderationType::Simple => simple_considerations.push(consideration),
                 ConsiderationType::Targeted => targeted_considerations.push(consideration),
@@ -51,11 +53,24 @@ impl<T: Component> DefineAI<T> {
 
         if !targeted_filter_considerations.is_empty() && targeted_considerations.is_empty() {
             panic!(
-                "Decisions that have Consideration::targeted_filter considerations without any \
-                Consideration::targeted considerations are invalid!")
+                "Decisions that have Consideration::targeted_filter considerations without \
+                any Consideration::targeted considerations are invalid!"
+            )
         }
 
         let is_targeted = !targeted_considerations.is_empty();
+
+        // Add any filter considerations to the AIDefinition
+        if is_targeted && !targeted_filter_considerations.is_empty() {
+            let filter_sets: Vec<usize> = targeted_filter_considerations
+                .iter()
+                .map(|f| f.input)
+                .collect();
+            for targeted_consideration in &targeted_considerations {
+                self.targeted_input_filter_sets
+                    .insert(targeted_consideration.input, filter_sets.clone());
+            }
+        }
 
         let decision = Decision {
             action_name: type_name::<C>().into(),
@@ -83,6 +98,7 @@ impl<T: Component> DefineAI<T> {
                 AIDefinition {
                     decisions: self.decisions,
                     required_inputs: self.required_inputs,
+                    targeted_input_filter_sets: self.targeted_input_filter_sets,
                 },
             );
         } else {

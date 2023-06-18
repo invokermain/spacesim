@@ -36,3 +36,10 @@ pub struct AI1 {}
 
 #[derive(Component)]
 pub struct AI2 {}
+
+// ZST's for filtering
+#[derive(Component)]
+pub struct AA {}
+
+#[derive(Component)]
+pub struct BB {}
