@@ -90,8 +90,12 @@ impl<T: Component> DefineAI<T> {
         // note all these actions are idempotent except app.add_system
 
         // Add the AIDefinition to the AIDefinitions resource
-        app.init_resource::<AIDefinitions>();
-        let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
+        let mut ai_definitions = app
+            .world
+            .get_resource_mut::<AIDefinitions>()
+            .unwrap_or_else(|| {
+                panic!("Make sure the plugin is added to the app before calls to DefineAI")
+            });
         if !ai_definitions.map.contains_key(&TypeId::of::<T>()) {
             ai_definitions.map.insert(
                 TypeId::of::<T>(),

@@ -1,6 +1,6 @@
 use crate::{
     systems::{make_decisions, update_action, UpdateEntityAction},
-    AITargetEntitySets,
+    AIDefinitions, AITargetEntitySets,
 };
 use bevy::prelude::{IntoSystemConfig, IntoSystemSetConfig, Plugin, SystemSet};
 
@@ -16,6 +16,7 @@ pub struct UtilityAIPlugin;
 impl Plugin for UtilityAIPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_event::<UpdateEntityAction>()
+            .init_resource::<AIDefinitions>()
             .init_resource::<AITargetEntitySets>()
             .add_system(make_decisions.in_set(UtililityAISet::MakeDecisions))
             .add_system(update_action.in_set(UtililityAISet::UpdateActions))

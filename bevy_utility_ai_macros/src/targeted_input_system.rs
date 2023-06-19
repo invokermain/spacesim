@@ -146,6 +146,7 @@ pub(crate) fn targeted_input_system(
                 #subject_data_line
 
                 if let Some(target_entities) = target_entities {
+                    bevy::prelude::debug!("calculating input for {} filter set entities", target_entities.len());
                     for &target_entity in &target_entities {
                         let (entity_id #(, #target_arg_names)*) = q_target.get(target_entity).unwrap();
                         let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();

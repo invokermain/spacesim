@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub mod app;
 
 use bevy::prelude::{Component, Reflect, ReflectComponent, ReflectDefault, Vec2};

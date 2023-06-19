@@ -21,6 +21,8 @@ pub(crate) fn make_decisions(
             let span = debug_span!("", action = decision.action_name);
             let _span = span.enter();
 
+            debug!("evaluating");
+
             let mut decision_score = 1.0;
 
             // consider non-targeted considerations
@@ -31,8 +33,8 @@ pub(crate) fn make_decisions(
                     .unwrap_or(&f32::NEG_INFINITY);
                 if consideration_input_score == f32::NEG_INFINITY {
                     debug!(
-                        "It looks like input system for {} hasn't run, entity might have \
-                         components missing?",
+                        "It looks like input system for '{}' hasn't run, an entity might \
+                        have components missing?",
                         consideration.input_name
                     );
                 } else {
@@ -90,6 +92,11 @@ pub(crate) fn make_decisions(
                     idx, entity, targeted_decision_score
                 );
             }
+        }
+
+        if evaluated_decisions.is_empty() {
+            debug!("no scorable considerations for decision, skipping");
+            continue;
         }
 
         // pick best decision

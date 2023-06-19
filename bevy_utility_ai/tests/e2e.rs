@@ -3,14 +3,25 @@ mod common;
 use std::any::TypeId;
 
 use crate::common::app::test_app;
-use crate::common::{ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AI, AI1, AI2};
+use crate::common::{
+    ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AA, AI, AI1, AI2,
+};
 use bevy::prelude::{Entity, IntoSystemConfig, Vec2};
 use bevy_utility_ai::ai_meta::AIMeta;
 use bevy_utility_ai::considerations::Consideration;
 use bevy_utility_ai::define_ai::DefineAI;
 use bevy_utility_ai::plugin::{UtililityAISet, UtilityAIPlugin};
 use bevy_utility_ai::response_curves::LinearCurve;
-use bevy_utility_ai::{input_system, targeted_input_system};
+use bevy_utility_ai::systems::inclusive_filter_input;
+use bevy_utility_ai::{input_system, targeted_input_system, AITargetEntitySets};
+
+/// Test that adding the plugin without any configuration doesn't break the app.
+#[test]
+fn test_empty_plugin() {
+    let mut app = test_app();
+    app.add_plugin(UtilityAIPlugin);
+    app.update();
+}
 
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
 /// trivial case of two decisions with one consideration each.
@@ -251,62 +262,73 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
         .contains_key(&(targeted_utility_input_2 as usize)));
 }
 
-// /// Confirm that targeted input systems respects the valid_target_set
-// #[test]
-// fn calculate_targeted_inputs_calculates_only_for_entities_within_the_valid_target_set() {
-//     // SETUP
-//     #[targeted_input_system]
-//     fn targeted_utility_input_1(subject: (&Position,), target: (&Position,)) -> f32 {
-//         subject.0.val.distance(target.0.val)
-//     }
-//
-//     let mut app = test_app();
-//
-//     DefineAI::<AI1>::new()
-//         .add_decision::<ActionOne>(vec![Consideration::targeted(targeted_utility_input_1)
-//             .set_input_name("targeted_utility_input_1".into())])
-//         .register(&mut app);
-//
-//     app.add_system(targeted_utility_input_1);
-//     app.add_system(targeted_utility_input_2);
-//
-//     let entity_1 = app
-//         .world
-//         .spawn((
-//             Position {
-//                 val: Vec2::new(1.0, 1.0),
-//             },
-//             AI1 {},
-//             AIMeta::new::<AI1>(),
-//         ))
-//         .id();
-//     let entity_2 = app
-//         .world
-//         .spawn((
-//             Position {
-//                 val: Vec2::new(0.0, 0.0),
-//             },
-//             AI2 {},
-//             AIMeta::new::<AI2>(),
-//         ))
-//         .id();
-//
-//     app.update();
-//
-//     let ai_meta_1 = app.world.get::<AIMeta>(entity_1).unwrap();
-//     let ai_meta_2 = app.world.get::<AIMeta>(entity_2).unwrap();
-//
-//     assert!(ai_meta_1
-//         .targeted_input_scores
-//         .contains_key(&(targeted_utility_input_1 as usize)));
-//     assert!(!ai_meta_1
-//         .targeted_input_scores
-//         .contains_key(&(targeted_utility_input_2 as usize)));
-//
-//     assert!(!ai_meta_2
-//         .targeted_input_scores
-//         .contains_key(&(targeted_utility_input_1 as usize)));
-//     assert!(ai_meta_2
-//         .targeted_input_scores
-//         .contains_key(&(targeted_utility_input_2 as usize)));
-// }
+/// This test checks that the framework correctly handles targeted_filter systems.
+#[test]
+fn calculate_targeted_inputs_respects_filters() {
+    // SETUP
+    #[targeted_input_system]
+    fn targeted_utility_input_1(subject: (&Position,), target: (&Position,)) -> f32 {
+        subject.0.val.distance(target.0.val)
+    }
+
+    let mut app = test_app();
+    app.add_plugin(UtilityAIPlugin);
+
+    DefineAI::<AI1>::new()
+        .add_decision::<ActionOne>(vec![
+            Consideration::targeted_filter::<AA>(),
+            Consideration::targeted(targeted_utility_input_1)
+                .set_input_name("targeted_utility_input_1".into()),
+        ])
+        .register(&mut app);
+
+    app.add_system(targeted_utility_input_1.in_set(UtililityAISet::CalculateInputs));
+    app.add_system(inclusive_filter_input::<AA>);
+
+    let entity_subject = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(1.0, 1.0),
+            },
+            AI1 {},
+            AIMeta::new::<AI1>(),
+        ))
+        .id();
+    let entity_target = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(0.0, 0.0),
+            },
+            AA {},
+        ))
+        .id();
+    let _entity_ignore = app
+        .world
+        .spawn((Position {
+            val: Vec2::new(-1.0, -1.0),
+        },))
+        .id();
+
+    app.update();
+
+    // Assert that the only score calculated is for entity_target
+    let ai_meta = app.world.get::<AIMeta>(entity_subject).unwrap();
+
+    let scores = ai_meta
+        .targeted_input_scores
+        .get(&(targeted_utility_input_1 as usize))
+        .unwrap();
+
+    assert!(scores.contains_key(&entity_target));
+    assert_eq!(scores.len(), 1);
+
+    // Assert that the AITargetEntitySets contains only the entity_target
+    let ai_target_entity_sets = app.world.get_resource::<AITargetEntitySets>().unwrap();
+
+    let entity_set = ai_target_entity_sets.get(Consideration::targeted_filter::<AA>().input);
+
+    assert_eq!(entity_set.len(), 1);
+    assert!(entity_set.contains(&entity_target));
+}

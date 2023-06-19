@@ -19,7 +19,7 @@ pub struct UpdateEntityAction {
 }
 
 // TODO: add system that watches for component removal
-pub(crate) fn inclusive_filter_input<F: Component>(
+pub fn inclusive_filter_input<F: Component>(
     q_added: Query<Entity, Added<F>>,
     mut res_target_filter_sets: ResMut<AITargetEntitySets>,
 ) {
