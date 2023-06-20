@@ -1,10 +1,10 @@
-use bevy::prelude::{Entity, Query, ResMut, State, With, World};
+use bevy::prelude::{Entity, Query, ResMut, State, With};
 use bevy_egui::egui::{
     self,
     plot::{Legend, Line, Plot, PlotPoints},
     Ui,
 };
-use bevy_egui::{EguiContext, EguiContexts};
+use bevy_egui::{EguiContexts};
 use egui_extras::{Column, TableBuilder};
 use spacesim_simulation::common::components::Name;
 use spacesim_simulation::common::marker_components::{IsCompany, IsPlanet};
