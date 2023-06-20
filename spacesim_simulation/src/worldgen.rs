@@ -100,12 +100,19 @@ pub fn create_world(mut commands: Commands) {
         commands.entity(planet_mars_id).insert(planet_bundle);
     }
 
-    // A LONELY SHIP
+    // TWO LONELY SHIPS
     {
-        commands.spawn(ShipBundle::new(SystemCoordinates::new(
-            200_000_000.,
-            5_000_000.,
-            -5_000_000.,
-        )));
+        commands.spawn_batch(vec![
+            ShipBundle::new(SystemCoordinates::new(
+                200_000_000.,
+                5_000_000.,
+                -5_000_000.,
+            )),
+            ShipBundle::new(SystemCoordinates::new(
+                200_000_000.,
+                -5_000_000.,
+                5_000_000.,
+            )),
+        ]);
     }
 }
