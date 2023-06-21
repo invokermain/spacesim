@@ -48,9 +48,6 @@ fn simple_considerations_trivial() {
             .set_input_name("utility_input_high".into())])
         .register(&mut app);
 
-    app.add_system(utility_input_low.in_set(UtililityAISet::CalculateInputs));
-    app.add_system(utility_input_high.in_set(UtililityAISet::CalculateInputs));
-
     let entity_id = app
         .world
         .spawn((

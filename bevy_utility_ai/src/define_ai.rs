@@ -1,22 +1,28 @@
 use crate::considerations::{Consideration, ConsiderationType};
+use crate::plugin::UtililityAISet;
 use crate::systems::ensure_entity_has_ai_meta;
 use crate::{AIDefinition, AIDefinitions, Decision};
-use bevy::app::{App, AppTypeRegistry};
-use bevy::prelude::Component;
+use bevy::app::{App, AppTypeRegistry, IntoSystemAppConfig, SystemAppConfig};
+use bevy::ecs::schedule::ScheduleLabel;
+use bevy::prelude::{Component, IntoSystemConfig, Schedules};
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use bevy::utils::{HashMap, HashSet};
-use std::any::{type_name, TypeId};
+use std::any::{type_name, Any, TypeId};
 use std::marker::PhantomData;
+use std::ops::Deref;
 
 /// A builder which allows you declaratively specify your AI
 /// and returns a bundle that you can add to an entity.
 #[derive(Default)]
 pub struct DefineAI<T: Component> {
+    /// The decisions that make up this AI's logic, passed to AIDefinition on register.
     decisions: Vec<Decision>,
+    /// The full set of required inputs for this AI, passed to AIDefinition on register.
     required_inputs: HashSet<usize>,
-    action_type_registrations: Vec<TypeRegistration>,
-    /// A map of targeted_input system to the filter sets required for it
+    /// A map of targeted_input system to the filter sets required for it, passed to AIDefinition on register.
     targeted_input_filter_sets: HashMap<usize, Vec<usize>>,
+    /// A vec of all actions defined as part of this AI, will be registered to the App.
+    action_type_registrations: Vec<TypeRegistration>,
     marker_phantom: PhantomData<T>,
 }
 
@@ -26,8 +32,8 @@ impl<T: Component> DefineAI<T> {
             marker_phantom: PhantomData,
             decisions: Vec::new(),
             required_inputs: HashSet::new(),
-            action_type_registrations: Vec::new(),
             targeted_input_filter_sets: HashMap::new(),
+            action_type_registrations: Vec::new(),
         }
     }
 
@@ -83,11 +89,26 @@ impl<T: Component> DefineAI<T> {
         self.action_type_registrations
             .push(C::get_type_registration());
         self.decisions.push(decision);
+
         self
     }
 
-    pub fn register(self, app: &mut App) {
+    /// Registers the defined AI against the bevy App, this should be called as the last step of
+    /// the define process.
+    pub fn register(mut self, app: &mut App) {
         // note all these actions are idempotent except app.add_system
+
+        // Add utility systems
+        for decision in &mut self.decisions {
+            decision.simple_considerations.iter_mut().for_each(|c| {
+                let system_app_config = c.system_app_config.take().unwrap();
+                let config = &system_app_config;
+                if !app_contains_system(app, config) {
+                    app.add_system(system_app_config.in_set(UtililityAISet::CalculateInputs));
+                }
+            });
+        }
+        app.add_system(ensure_entity_has_ai_meta::<T>);
 
         // Add the AIDefinition to the AIDefinitions resource
         let mut ai_definitions = app
@@ -117,8 +138,20 @@ impl<T: Component> DefineAI<T> {
                 .into_iter()
                 .for_each(|f| registry_write.add_registration(f));
         }
+    }
+}
 
-        // Add utility systems
-        app.add_system(ensure_entity_has_ai_meta::<T>);
+fn app_contains_system(app: &App, system: &SystemAppConfig) -> bool {
+    let schedules = app.world.resource::<Schedules>();
+    let schedule_label = &*app.default_schedule_label;
+
+    if let Some(default_schedule) = schedules.get(schedule_label) {
+        return default_schedule
+            .graph()
+            .systems()
+            .find(|s| s.type_id() == system.type_id())
+            .is_some();
+    } else {
+        panic!("Default schedule does not exist.");
     }
 }
