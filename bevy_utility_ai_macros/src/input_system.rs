@@ -9,6 +9,7 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
     };
 
     let name = item_fn.sig.ident;
+    let quoted_name = format!("{}", name);
 
     let mut arg_names = Vec::new();
     let mut arg_types = Vec::new();
@@ -54,15 +55,30 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
 
     let body = item_fn.block;
 
-    // TODO: this needs to check against the AIDefinitions resource if the given entity requires
-    //   the input. Also update WASM macro.
     let output = quote! {
-        fn #name(mut query: bevy::prelude::Query<(&mut bevy_utility_ai::AIMeta #(, &#arg_types)*)>) {
+        fn #name(
+            mut query: bevy::prelude::Query<(bevy::prelude::Entity, &mut bevy_utility_ai::AIMeta #(, &#arg_types)*)>,
+            res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>
+        ) {
+            let _span = bevy::prelude::debug_span!("Calculating Input", input = #quoted_name).entered();
+
             let key = #name as usize;
-            for (mut ai_meta #(, #arg_names)*) in query.iter_mut() {
+            for (entity, mut ai_meta #(, #arg_names)*) in query.iter_mut() {
+                let _span = bevy::prelude::debug_span!("", entity = entity.index()).entered();
+
+                let is_required = res_ai_definitions
+                    .map[&ai_meta.ai_definition]
+                    .required_inputs
+                    .contains(&key);
+                if !is_required {
+                    bevy::prelude::debug!("skipped as does not require this input");
+                    continue;
+                }
+
                 let score = #body;
                 let mut entry = ai_meta.input_scores.entry(key).or_insert(f32::NEG_INFINITY);
                 *entry = score;
+                bevy::prelude::debug!("score {:.2}", score);
             }
         }
     };

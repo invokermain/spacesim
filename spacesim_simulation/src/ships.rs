@@ -1,3 +1,4 @@
+mod actions;
 mod ai;
 pub mod bundles;
 pub mod components;
