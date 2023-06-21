@@ -1,4 +1,4 @@
-use bevy::prelude::{App, IntoSystemConfig};
+use bevy::prelude::App;
 use bevy::{
     prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
@@ -6,9 +6,7 @@ use bevy::{
 use bevy_utility_ai::considerations::Consideration;
 
 use bevy_utility_ai::define_ai::DefineAI;
-use bevy_utility_ai::plugin::UtililityAISet;
 use bevy_utility_ai::response_curves::LinearCurve;
-use bevy_utility_ai::systems::inclusive_filter_input;
 use bevy_utility_ai::targeted_input_system;
 
 use super::components::SystemCoordinates;
@@ -39,9 +37,6 @@ pub(super) fn define_ship_ai(app: &mut App) {
                 .set_input_name("distance_to_planet".into()),
         ])
         .register(app);
-
-    app.add_system(system_distance.in_set(UtililityAISet::CalculateInputs));
-    app.add_system(inclusive_filter_input::<IsPlanet>);
 }
 
 // Actions
