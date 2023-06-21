@@ -44,7 +44,7 @@ pub(crate) fn ensure_entity_has_ai_meta<T: Component>(
 #[cfg(test)]
 mod tests {
     use crate::systems::inclusive_filter_input;
-    use crate::AIMeta;
+    use crate::{AIMeta, AITargetEntitySets};
     use bevy::app::App;
     use bevy::prelude::Component;
 
@@ -54,27 +54,30 @@ mod tests {
         struct FilterTarget {}
 
         #[derive(Component)]
+        struct OtherComponent {}
+
+        #[derive(Component)]
         struct AIMarker {}
 
         let mut app = App::new();
+        app.init_resource::<AITargetEntitySets>();
 
         app.add_system(inclusive_filter_input::<FilterTarget>);
 
-        let entity_1 = app
-            .world
-            .spawn((AIMarker {}, AIMeta::new::<AIMarker>()))
-            .id();
-        let entity_2 = app.world.spawn((FilterTarget {},)).id();
+        app.world.spawn((AIMarker {}, AIMeta::new::<AIMarker>()));
+        let entity_valid_target = app.world.spawn((FilterTarget {},)).id();
+        let entity_invalid_target = app.world.spawn((OtherComponent {},)).id();
 
         app.update();
 
-        let ai_meta = app.world.get::<AIMeta>(entity_1).unwrap();
+        let ai_target_entity_sets = app.world.get_resource::<AITargetEntitySets>().unwrap();
+        let entity_set = ai_target_entity_sets
+            .entity_set_map
+            .get(&(inclusive_filter_input::<FilterTarget> as usize))
+            .unwrap();
 
-        assert!(ai_meta.valid_target_set.is_some());
-        assert!(ai_meta
-            .valid_target_set
-            .as_ref()
-            .unwrap()
-            .contains(&entity_2));
+        assert!(!entity_set.is_empty());
+        assert!(entity_set.contains(&entity_valid_target));
+        assert!(!entity_set.contains(&entity_invalid_target));
     }
 }

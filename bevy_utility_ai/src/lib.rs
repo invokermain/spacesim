@@ -65,5 +65,6 @@ pub struct Decision {
     pub action: TypeId,
     pub simple_considerations: Vec<Consideration>,
     pub targeted_considerations: Vec<Consideration>,
+    pub targeted_filter_considerations: Vec<Consideration>,
     pub is_targeted: bool,
 }

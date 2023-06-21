@@ -1,19 +1,20 @@
-mod common;
-
 use std::any::TypeId;
+
+use bevy::prelude::{Entity, Vec2};
+
+use bevy_utility_ai::ai_meta::AIMeta;
+use bevy_utility_ai::considerations::Consideration;
+use bevy_utility_ai::define_ai::DefineAI;
+use bevy_utility_ai::plugin::UtilityAIPlugin;
+use bevy_utility_ai::response_curves::LinearCurve;
+use bevy_utility_ai::{input_system, targeted_input_system, AITargetEntitySets};
 
 use crate::common::app::test_app;
 use crate::common::{
     ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AA, AI, AI1, AI2,
 };
-use bevy::prelude::{Entity, IntoSystemConfig, Vec2};
-use bevy_utility_ai::ai_meta::AIMeta;
-use bevy_utility_ai::considerations::Consideration;
-use bevy_utility_ai::define_ai::DefineAI;
-use bevy_utility_ai::plugin::{UtililityAISet, UtilityAIPlugin};
-use bevy_utility_ai::response_curves::LinearCurve;
-use bevy_utility_ai::systems::inclusive_filter_input;
-use bevy_utility_ai::{input_system, targeted_input_system, AITargetEntitySets};
+
+mod common;
 
 /// Test that adding the plugin without any configuration doesn't break the app.
 #[test]
@@ -98,9 +99,6 @@ fn calculate_inputs_calculates_only_for_required_entities() {
         ])
         .register(&mut app);
 
-    app.add_system(utility_input_1.in_set(UtililityAISet::CalculateInputs));
-    app.add_system(utility_input_2.in_set(UtililityAISet::CalculateInputs));
-
     let entity_1 = app
         .world
         .spawn((SomeData { val: 1.0 }, AI1 {}, AIMeta::new::<AI1>()))
@@ -150,8 +148,6 @@ fn targeted_trivial() {
             .with_response_curve(LinearCurve::new(-1.0).shifted(0.0, 1.0))
             .set_input_name("targeted_utility_input".into())])
         .register(&mut app);
-
-    app.add_system(targeted_utility_input.in_set(UtililityAISet::CalculateInputs));
 
     let entity_id = app
         .world
@@ -215,9 +211,6 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
             .set_input_name("targeted_utility_input_2".into())])
         .register(&mut app);
 
-    app.add_system(targeted_utility_input_1.in_set(UtililityAISet::CalculateInputs));
-    app.add_system(targeted_utility_input_2.in_set(UtililityAISet::CalculateInputs));
-
     let entity_1 = app
         .world
         .spawn((
@@ -278,9 +271,6 @@ fn calculate_targeted_inputs_respects_filters() {
                 .set_input_name("targeted_utility_input_1".into()),
         ])
         .register(&mut app);
-
-    app.add_system(targeted_utility_input_1.in_set(UtililityAISet::CalculateInputs));
-    app.add_system(inclusive_filter_input::<AA>);
 
     let entity_subject = app
         .world

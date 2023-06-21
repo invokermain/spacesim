@@ -2,14 +2,12 @@ use crate::considerations::{Consideration, ConsiderationType};
 use crate::plugin::UtililityAISet;
 use crate::systems::ensure_entity_has_ai_meta;
 use crate::{AIDefinition, AIDefinitions, Decision};
-use bevy::app::{App, AppTypeRegistry, IntoSystemAppConfig, SystemAppConfig};
-use bevy::ecs::schedule::ScheduleLabel;
-use bevy::prelude::{Component, IntoSystemConfig, Schedules};
+use bevy::app::{App, AppTypeRegistry};
+use bevy::prelude::{Component, IntoSystemConfig, Resource};
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use bevy::utils::{HashMap, HashSet};
-use std::any::{type_name, Any, TypeId};
+use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
-use std::ops::Deref;
 
 /// A builder which allows you declaratively specify your AI
 /// and returns a bundle that you can add to an entity.
@@ -83,6 +81,7 @@ impl<T: Component> DefineAI<T> {
             action: TypeId::of::<C>(),
             simple_considerations,
             targeted_considerations,
+            targeted_filter_considerations,
             is_targeted,
         };
 
@@ -94,21 +93,50 @@ impl<T: Component> DefineAI<T> {
     }
 
     /// Registers the defined AI against the bevy App, this should be called as the last step of
-    /// the define process.
+    /// the defineAI process.
     pub fn register(mut self, app: &mut App) {
-        // note all these actions are idempotent except app.add_system
+        // note all these actions are idempotent except app.add_system, so we maintain a resource on
+        // the app to track systems that are already added.
+        {
+            let mut added_systems = app
+                .world
+                .remove_resource::<AddedSystemTracker>()
+                .unwrap_or_else(|| {
+                    panic!("Make sure the plugin is added to the app before calls to DefineAI")
+                });
 
-        // Add utility systems
-        for decision in &mut self.decisions {
-            decision.simple_considerations.iter_mut().for_each(|c| {
-                let system_app_config = c.system_app_config.take().unwrap();
-                let config = &system_app_config;
-                if !app_contains_system(app, config) {
-                    app.add_system(system_app_config.in_set(UtililityAISet::CalculateInputs));
-                }
-            });
+            app.add_system(ensure_entity_has_ai_meta::<T>);
+
+            // Add utility systems
+            for decision in &mut self.decisions {
+                decision
+                    .simple_considerations
+                    .iter_mut()
+                    .chain(decision.targeted_considerations.iter_mut())
+                    .chain(decision.targeted_filter_considerations.iter_mut())
+                    .for_each(|c| {
+                        let system_app_config = c.system_app_config.take().unwrap();
+                        if !added_systems.systems.contains(&c.input) {
+                            app.add_system(
+                                system_app_config.in_set(UtililityAISet::CalculateInputs),
+                            );
+                            added_systems.systems.insert(c.input);
+                        }
+                    });
+            }
+            app.add_system(ensure_entity_has_ai_meta::<T>);
+
+            app.world.insert_resource(added_systems);
         }
-        app.add_system(ensure_entity_has_ai_meta::<T>);
+
+        // Register actions with the AppTypeRegistry
+        {
+            let registry = app.world.resource_mut::<AppTypeRegistry>();
+            let mut registry_write = registry.write();
+            self.action_type_registrations
+                .into_iter()
+                .for_each(|f| registry_write.add_registration(f));
+        }
 
         // Add the AIDefinition to the AIDefinitions resource
         let mut ai_definitions = app
@@ -129,29 +157,10 @@ impl<T: Component> DefineAI<T> {
         } else {
             panic!("AI is already defined for this marker component!")
         }
-
-        // Register actions with the AppTypeRegistry
-        {
-            let registry = app.world.resource_mut::<AppTypeRegistry>();
-            let mut registry_write = registry.write();
-            self.action_type_registrations
-                .into_iter()
-                .for_each(|f| registry_write.add_registration(f));
-        }
     }
 }
 
-fn app_contains_system(app: &App, system: &SystemAppConfig) -> bool {
-    let schedules = app.world.resource::<Schedules>();
-    let schedule_label = &*app.default_schedule_label;
-
-    if let Some(default_schedule) = schedules.get(schedule_label) {
-        return default_schedule
-            .graph()
-            .systems()
-            .find(|s| s.type_id() == system.type_id())
-            .is_some();
-    } else {
-        panic!("Default schedule does not exist.");
-    }
+#[derive(Resource, Default)]
+pub(crate) struct AddedSystemTracker {
+    pub(crate) systems: HashSet<usize>,
 }
