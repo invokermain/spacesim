@@ -108,11 +108,11 @@ pub fn create_world(mut commands: Commands) {
                 5_000_000.,
                 -5_000_000.,
             )),
-            ShipBundle::new(SystemCoordinates::new(
-                200_000_000.,
-                -5_000_000.,
-                5_000_000.,
-            )),
+            // ShipBundle::new(SystemCoordinates::new(
+            //     200_000_000.,
+            //     -5_000_000.,
+            //     5_000_000.,
+            // )),
         ]);
     }
 }

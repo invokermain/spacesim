@@ -1,8 +1,9 @@
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::{
-    Camera3d, Camera3dBundle, Color, Commands, Component, EventReader, Input, Mat3, MouseButton,
-    PerspectiveProjection, Projection, Quat, Query, Res, ResMut, Transform, Vec2, Vec3,
+    Camera3d, Camera3dBundle, Color, Commands, Component, EventReader, Input, Mat3,
+    MouseButton, PerspectiveProjection, Projection, Quat, Query, Res, ResMut, Transform, Vec2,
+    Vec3,
 };
 
 use bevy::{utils::default, window::Window};
@@ -87,13 +88,14 @@ pub(super) fn pan_orbit_camera(
             let yaw = Quat::from_rotation_y(-delta_x);
             let pitch = Quat::from_rotation_x(-delta_y);
             transform.rotation = yaw * transform.rotation; // rotate around global y axis
-            transform.rotation = transform.rotation * pitch; // rotate around local x axis
+            transform.rotation *= pitch; // rotate around local x axis
         } else if pan.length_squared() > 0.0 {
             any = true;
             // make panning distance independent of resolution and FOV,
             let window = get_window_size(q_window.single());
             if let Projection::Perspective(projection) = projection {
-                pan *= Vec2::new(projection.fov * projection.aspect_ratio, projection.fov) / window;
+                pan *= Vec2::new(projection.fov * projection.aspect_ratio, projection.fov)
+                    / window;
             }
             // translate by local axes
             let right = transform.rotation * Vec3::X * -pan.x;
@@ -133,7 +135,8 @@ pub(super) fn spawn_camera(mut commands: Commands, mut handles: ResMut<SystemVie
     let entity_id = commands
         .spawn((
             Camera3dBundle {
-                transform: Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
+                transform: Transform::from_translation(translation)
+                    .looking_at(Vec3::ZERO, Vec3::Y),
                 projection: Projection::Perspective(PerspectiveProjection {
                     fov: std::f32::consts::PI / 4.0,
                     near: 0.1,
@@ -141,7 +144,7 @@ pub(super) fn spawn_camera(mut commands: Commands, mut handles: ResMut<SystemVie
                     aspect_ratio: 1.0,
                 }),
                 camera_3d: Camera3d {
-                    clear_color: ClearColorConfig::Custom(Color::BLACK),
+                    clear_color: ClearColorConfig::Custom(Color::MIDNIGHT_BLUE),
                     ..default()
                 },
                 ..default()

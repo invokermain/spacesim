@@ -4,7 +4,7 @@ use bevy_egui::egui::{
     plot::{Legend, Line, Plot, PlotPoints},
     Ui,
 };
-use bevy_egui::{EguiContexts};
+use bevy_egui::EguiContexts;
 use egui_extras::{Column, TableBuilder};
 use spacesim_simulation::common::components::Name;
 use spacesim_simulation::common::marker_components::{IsCompany, IsPlanet};
@@ -30,7 +30,7 @@ pub(crate) fn planet_ui(
     mut r_planet_view_state: ResMut<PlanetViewState>,
 ) {
     if r_planet_view_state.selected_planet.is_none() {
-        r_planet_view_state.selected_planet = q_planets.iter().next().and_then(|x| Some(x.0));
+        r_planet_view_state.selected_planet = q_planets.iter().next().map(|x| x.0);
     }
 
     let game_view_state = r_game_view_state.as_mut();
@@ -43,7 +43,7 @@ pub(crate) fn planet_ui(
                 ui.selectable_value(
                     &mut r_planet_view_state.selected_planet,
                     Some(res.0),
-                    format!("{}", res.2.value),
+                    res.2.value.to_string(),
                 );
             })
         });
@@ -90,7 +90,10 @@ pub(crate) fn render_commodity_storage(ui: &mut Ui, commodity_storage: &Commodit
                 body.row(20.0, |mut row| {
                     for commodity_type in CommodityType::iter() {
                         row.col(|ui| {
-                            ui.label(format!("{:.2}", commodity_storage[commodity_type as usize]));
+                            ui.label(format!(
+                                "{:.2}",
+                                commodity_storage[commodity_type as usize]
+                            ));
                         });
                     }
                 });
