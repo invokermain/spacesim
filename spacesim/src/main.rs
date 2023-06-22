@@ -8,6 +8,9 @@ use bevy::{
     window::{Window, WindowPlugin},
     DefaultPlugins,
 };
+use bevy_vector_shapes::painter::ShapeConfig;
+use bevy_vector_shapes::prelude::Alignment;
+use bevy_vector_shapes::ShapePlugin;
 use game::GamePlugin;
 use spacesim_simulation::SimulationPlugin;
 
@@ -34,5 +37,12 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(SimulationPlugin)
         .add_plugin(GamePlugin)
+        .add_plugin(ShapePlugin {
+            base_config: ShapeConfig {
+                alignment: Alignment::Billboard,
+                ..ShapeConfig::default_3d()
+            },
+            ..default()
+        })
         .run();
 }

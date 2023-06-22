@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
 use bevy::prelude::{
-    shape, Assets, Color, Commands, Mesh, PbrBundle, PointLight, PointLightBundle, Quat, ResMut,
-    StandardMaterial, Transform, Vec3,
+    shape, Assets, Color, Commands, Mesh, PbrBundle, Quat, ResMut, StandardMaterial,
+    Transform, Vec3,
 };
 
 use bevy::utils::default;
@@ -15,17 +15,6 @@ pub(super) fn spawn_sun(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut handles: ResMut<SystemViewHandles>,
 ) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 4000.0,
-            range: 15.,
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::ZERO),
-        ..default()
-    });
-
     let entity_id = commands
         .spawn(PbrBundle {
             mesh: meshes.add(

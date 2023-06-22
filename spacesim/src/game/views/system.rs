@@ -13,15 +13,13 @@ use crate::game::state::GameViewState;
 use self::camera::{pan_orbit_camera, spawn_camera};
 use self::setup::{spawn_axes, spawn_sun};
 use self::ui::system_ui;
-use self::view::{
-    mirror_planets, mirror_ships, update_system_coordinates_based_transforms, MirrorMap,
-};
+use self::view::{draw_planets, draw_ships};
 
 pub struct SystemViewPlugin;
 
 pub(crate) const SCALING_FACTOR: f32 = 100_000_000.;
 
-/// Note these shouldn't be accessed before startup systems have run succesfully
+/// Note these shouldn't be accessed before startup systems have run successfully
 #[derive(Resource)]
 pub(crate) struct SystemViewHandles {
     pub(crate) camera: Entity,
@@ -55,14 +53,10 @@ fn toggle_camera<const V: bool>(
 impl Plugin for SystemViewPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<SystemViewHandles>()
-            .init_resource::<MirrorMap>()
             .add_startup_systems((spawn_camera, spawn_sun, spawn_axes))
             .add_system(toggle_camera::<true>.in_schedule(OnEnter(GameViewState::System)))
-            .add_system(mirror_planets.in_set(OnUpdate(GameViewState::System)))
-            .add_system(mirror_ships.in_set(OnUpdate(GameViewState::System)))
-            .add_system(
-                update_system_coordinates_based_transforms.in_set(OnUpdate(GameViewState::System)),
-            )
+            .add_system(draw_ships.in_set(OnUpdate(GameViewState::System)))
+            .add_system(draw_planets.in_set(OnUpdate(GameViewState::System)))
             .add_system(pan_orbit_camera.in_set(OnUpdate(GameViewState::System)))
             .add_system(system_ui.in_set(OnUpdate(GameViewState::System)))
             .add_system(toggle_camera::<false>.in_schedule(OnExit(GameViewState::System)));
