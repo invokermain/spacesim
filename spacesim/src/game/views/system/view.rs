@@ -1,8 +1,9 @@
-use bevy::math::Vec3;
-use bevy::prelude::{Color, Query, Transform, With};
+use bevy::math::Quat;
+use bevy::prelude::{Color, Query, Vec2, With};
+use std::f32::consts::PI;
 
 use bevy_vector_shapes::painter::ShapePainter;
-use bevy_vector_shapes::prelude::{Cap, DiscPainter, LinePainter};
+use bevy_vector_shapes::prelude::{Cap, DiscPainter, LinePainter, RectPainter};
 use spacesim_simulation::common::marker_components::{IsPlanet, IsShip};
 use spacesim_simulation::ships::components::SystemCoordinates;
 
@@ -13,8 +14,7 @@ pub(crate) fn draw_planets(
     q_planets: Query<&SystemCoordinates, With<IsPlanet>>,
 ) {
     for coords in &q_planets {
-        painter.transform = Transform::from_translation(coords.value / SCALING_FACTOR);
-        // painter.thickness = 0.01;
+        painter.set_translation(coords.value / SCALING_FACTOR);
         painter.color = Color::WHITE;
         painter.circle(0.1);
     }
@@ -25,11 +25,14 @@ pub(crate) fn draw_ships(
     q_ships: Query<&SystemCoordinates, With<IsShip>>,
 ) {
     for coords in &q_ships {
-        painter.transform = Transform::from_translation(coords.value / SCALING_FACTOR);
-        painter.thickness = 0.01;
+        painter.set_translation(coords.value / SCALING_FACTOR);
         painter.color = Color::WHITE;
         painter.cap = Cap::None;
-        painter.line(Vec3::new(-0.05, 0.05, 0.0), Vec3::new(0.05, -0.05, 0.0));
-        painter.line(Vec3::new(-0.05, -0.05, 0.0), Vec3::new(0.05, 0.05, 0.0));
+
+        painter.set_rotation(Quat::from_rotation_x(-0.25 * PI));
+        painter.rect(Vec2::new(0.01, 0.10));
+
+        painter.set_rotation(Quat::from_rotation_x(0.25 * PI));
+        painter.rect(Vec2::new(0.01, 0.10));
     }
 }
