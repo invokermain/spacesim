@@ -1,3 +1,4 @@
+use crate::considerations::ConsiderationType;
 use crate::systems::update_action::UpdateEntityActionInternal;
 use crate::{AIDefinitions, AIMeta, Decision};
 use bevy::log::{debug, debug_span};
@@ -27,7 +28,11 @@ pub(crate) fn make_decisions_sys(
             let mut decision_score = 1.0;
 
             // consider non-targeted considerations
-            for consideration in &decision.simple_considerations {
+            for consideration in decision
+                .considerations
+                .iter()
+                .filter(|c| c.consideration_type == ConsiderationType::Simple)
+            {
                 let consideration_input_score = *ai_meta
                     .input_scores
                     .get(&consideration.input)
@@ -62,7 +67,11 @@ pub(crate) fn make_decisions_sys(
             let mut targeted_scores = HashMap::new();
 
             // consider targeted considerations
-            for consideration in &decision.targeted_considerations {
+            for consideration in decision
+                .considerations
+                .iter()
+                .filter(|c| c.consideration_type == ConsiderationType::Targeted)
+            {
                 let score_map = ai_meta.targeted_input_scores.get(&consideration.input);
                 if score_map.is_none() {
                     debug!(

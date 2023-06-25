@@ -1,15 +1,18 @@
 pub mod ai_meta;
 pub mod considerations;
+pub mod decisions;
 pub mod define_ai;
 pub mod plugin;
 pub mod response_curves;
 pub mod systems;
+
 pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
 pub use crate::ai_meta::AIMeta;
-use crate::considerations::Consideration;
 use std::any::TypeId;
 
+use crate::decisions::Decision;
+use crate::define_ai::TargetedInputRequirements;
 use bevy::{
     prelude::{Component, Entity, Resource},
     utils::{HashMap, HashSet},
@@ -18,17 +21,23 @@ use bevy::{
 pub struct AIDefinition {
     /// The decisions that make up this AIDefinition
     pub decisions: Vec<Decision>,
-    /// The set of inputs that are required for this AIDefinition.
-    pub required_inputs: HashSet<usize>,
-    /// A map of `targeted_input_system` key to set of `inclusive_targeted_filter_input` keys, see
-    /// AITargetEntitySets
-    pub targeted_input_filter_sets: HashMap<usize, Vec<usize>>,
+    /// The simple inputs used for this AI, passed to AIDefinition on register.
+    simple_inputs: HashSet<usize>,
+    /// The targeted inputs used for this AI, passed to AIDefinition on register.
+    targeted_inputs: HashMap<usize, TargetedInputRequirements>,
 }
 
 impl AIDefinition {
-    // TODO: input staleness can be implemented here
-    pub fn input_should_run(&self, input: usize, _entity: Entity) -> bool {
-        self.required_inputs.contains(&input)
+    pub fn requires_targeted_input(&self, input: &usize) -> bool {
+        // TODO: doesn't feel great that we have to do two lookups, maybe a design smell
+        self.simple_inputs.contains(input) || self.targeted_inputs.contains_key(input)
+    }
+
+    pub fn get_targeted_input_requirements(
+        &self,
+        input: &usize,
+    ) -> &TargetedInputRequirements {
+        &self.targeted_inputs[&input]
     }
 }
 
@@ -75,15 +84,6 @@ impl AITargetEntitySets {
 #[derive(Component)]
 pub struct ActionTarget {
     pub target: Entity,
-}
-
-pub struct Decision {
-    pub action_name: String,
-    pub action: TypeId,
-    pub simple_considerations: Vec<Consideration>,
-    pub targeted_considerations: Vec<Consideration>,
-    pub targeted_filter_considerations: Vec<Consideration>,
-    pub is_targeted: bool,
 }
 
 #[cfg(test)]

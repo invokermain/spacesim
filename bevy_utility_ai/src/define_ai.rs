@@ -1,12 +1,18 @@
-use crate::considerations::{Consideration, ConsiderationType};
+use crate::considerations::ConsiderationType;
+use crate::decisions::Decision;
 use crate::plugin::UtililityAISet;
 use crate::systems::ensure_entity_has_ai_meta;
-use crate::{AIDefinition, AIDefinitions, Decision};
-use bevy::app::{App, AppTypeRegistry};
-use bevy::prelude::{Component, IntoSystemConfig, Resource};
-use bevy::reflect::{GetTypeRegistration, TypeRegistration};
-use bevy::utils::{HashMap, HashSet};
-use std::any::{type_name, TypeId};
+use crate::{AIDefinition, AIDefinitions};
+use bevy::{
+    app::{App, AppTypeRegistry},
+    ecs::component::ComponentId,
+    prelude::Component,
+    prelude::IntoSystemConfig,
+    prelude::Resource,
+    reflect::TypeRegistration,
+    utils::{HashMap, HashSet},
+};
+use std::any::TypeId;
 use std::marker::PhantomData;
 
 /// A builder which allows you declaratively specify your AI
@@ -15,13 +21,46 @@ use std::marker::PhantomData;
 pub struct DefineAI<T: Component> {
     /// The decisions that make up this AI's logic, passed to AIDefinition on register.
     decisions: Vec<Decision>,
-    /// The full set of required inputs for this AI, passed to AIDefinition on register.
-    required_inputs: HashSet<usize>,
-    /// A map of targeted_input system to the filter sets required for it, passed to AIDefinition on register.
-    targeted_input_filter_sets: HashMap<usize, Vec<usize>>,
+    /// The simple inputs used for this AI, passed to AIDefinition on register.
+    simple_inputs: HashSet<usize>,
+    /// The targeted inputs used for this AI, passed to AIDefinition on register.
+    targeted_inputs: HashMap<usize, TargetedInputRequirements>,
     /// A vec of all actions defined as part of this AI, will be registered to the App.
     action_type_registrations: Vec<TypeRegistration>,
     marker_phantom: PhantomData<T>,
+}
+
+pub enum FilterDefinition {
+    Any,
+    Filtered(Vec<HashSet<ComponentId>>),
+}
+
+impl FilterDefinition {
+    pub fn merge(&mut self, other: &FilterDefinition) -> FilterDefinition {
+        match (self, other) {
+            (FilterDefinition::Any, FilterDefinition::Any) => FilterDefinition::Any,
+            (FilterDefinition::Filtered(_), FilterDefinition::Any) => FilterDefinition::Any,
+            (FilterDefinition::Any, FilterDefinition::Filtered(_)) => FilterDefinition::Any,
+            (FilterDefinition::Filtered(x), FilterDefinition::Filtered(y)) => {
+                let mut joined = x.clone();
+                joined.extend(y.clone());
+                FilterDefinition::Filtered(joined)
+            }
+        }
+    }
+}
+
+pub struct TargetedInputRequirements {
+    pub target_filter: FilterDefinition,
+}
+
+impl TargetedInputRequirements {
+    pub fn get_filter_component_sets(&self) -> Option<&Vec<HashSet<ComponentId>>> {
+        match &self.target_filter {
+            FilterDefinition::Any => None,
+            FilterDefinition::Filtered(component_sets) => Some(component_sets),
+        }
+    }
 }
 
 impl<T: Component> DefineAI<T> {
@@ -29,64 +68,41 @@ impl<T: Component> DefineAI<T> {
         Self {
             marker_phantom: PhantomData,
             decisions: Vec::new(),
-            required_inputs: HashSet::new(),
-            targeted_input_filter_sets: HashMap::new(),
+            simple_inputs: HashSet::new(),
+            targeted_inputs: HashMap::new(),
             action_type_registrations: Vec::new(),
         }
     }
 
-    pub fn add_decision<C: Component + GetTypeRegistration>(
-        mut self,
-        considerations: Vec<Consideration>,
-        // target_filter_here
-    ) -> DefineAI<T> {
-        let mut simple_considerations = Vec::new();
-        let mut targeted_filter_considerations = Vec::new();
-        let mut targeted_considerations = Vec::new();
-
-        considerations.into_iter().for_each(|consideration| {
-            self.required_inputs.insert(consideration.input);
+    pub fn add_decision(mut self, decision: Decision) -> DefineAI<T> {
+        for consideration in &decision.considerations {
             match consideration.consideration_type {
-                ConsiderationType::Simple => simple_considerations.push(consideration),
-                ConsiderationType::Targeted => targeted_considerations.push(consideration),
-                ConsiderationType::TargetedFilter => {
-                    targeted_filter_considerations.push(consideration)
+                ConsiderationType::Simple => {
+                    self.simple_inputs.insert(consideration.input);
                 }
-            }
-        });
-
-        if !targeted_filter_considerations.is_empty() && targeted_considerations.is_empty() {
-            panic!(
-                "Decisions that have Consideration::targeted_filter considerations without \
-                any Consideration::targeted considerations are invalid!"
-            )
+                ConsiderationType::Targeted => {
+                    let filter_definition = match !decision.target_filters.is_empty() {
+                        true => FilterDefinition::Any,
+                        false => FilterDefinition::Filtered(vec![HashSet::from_iter(
+                            decision.target_filters.clone(),
+                        )]),
+                    };
+                    if let Some(req) = self.targeted_inputs.get_mut(&consideration.input) {
+                        req.target_filter = req.target_filter.merge(&filter_definition)
+                    } else {
+                        self.targeted_inputs.insert(
+                            consideration.input,
+                            TargetedInputRequirements {
+                                target_filter: filter_definition,
+                            },
+                        );
+                    }
+                }
+            };
         }
-
-        let is_targeted = !targeted_considerations.is_empty();
-
-        // Add any filter considerations to the AIDefinition
-        if is_targeted && !targeted_filter_considerations.is_empty() {
-            let filter_sets: Vec<usize> = targeted_filter_considerations
-                .iter()
-                .map(|f| f.input)
-                .collect();
-            for targeted_consideration in &targeted_considerations {
-                self.targeted_input_filter_sets
-                    .insert(targeted_consideration.input, filter_sets.clone());
-            }
-        }
-
-        let decision = Decision {
-            action_name: type_name::<C>().into(),
-            action: TypeId::of::<C>(),
-            simple_considerations,
-            targeted_considerations,
-            targeted_filter_considerations,
-            is_targeted,
-        };
 
         self.action_type_registrations
-            .push(C::get_type_registration());
+            .push(decision.type_registration.clone());
         self.decisions.push(decision);
 
         self
@@ -109,20 +125,15 @@ impl<T: Component> DefineAI<T> {
 
             // Add utility systems
             for decision in &mut self.decisions {
-                decision
-                    .simple_considerations
-                    .iter_mut()
-                    .chain(decision.targeted_considerations.iter_mut())
-                    .chain(decision.targeted_filter_considerations.iter_mut())
-                    .for_each(|c| {
-                        let system_app_config = c.system_app_config.take().unwrap();
-                        if !added_systems.systems.contains(&c.input) {
-                            app.add_system(
-                                system_app_config.in_set(UtililityAISet::CalculateInputs),
-                            );
-                            added_systems.systems.insert(c.input);
-                        }
-                    });
+                decision.considerations.iter_mut().for_each(|c| {
+                    let system_app_config = c.system_app_config.take().unwrap();
+                    if !added_systems.systems.contains(&c.input) {
+                        app.add_system(
+                            system_app_config.in_set(UtililityAISet::CalculateInputs),
+                        );
+                        added_systems.systems.insert(c.input);
+                    }
+                });
             }
 
             app.world.insert_resource(added_systems);
@@ -149,8 +160,8 @@ impl<T: Component> DefineAI<T> {
                 TypeId::of::<T>(),
                 AIDefinition {
                     decisions: self.decisions,
-                    required_inputs: self.required_inputs,
-                    targeted_input_filter_sets: self.targeted_input_filter_sets,
+                    simple_inputs: self.simple_inputs,
+                    targeted_inputs: self.targeted_inputs,
                 },
             );
         } else {

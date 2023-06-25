@@ -1,9 +1,10 @@
 use crate::response_curves::{LinearCurve, ResponseCurve};
-use crate::systems::inclusive_targeted_filter_input;
-use crate::{AIDefinitions, AITargetEntitySets};
+use crate::AIDefinitions;
 use bevy::app::{IntoSystemAppConfig, SystemAppConfig};
+use bevy::ecs::archetype::Archetypes;
+use bevy::ecs::entity::Entities;
 use bevy::ecs::query::WorldQuery;
-use bevy::prelude::{Component, Query, Res};
+use bevy::prelude::{Query, Res};
 use std::any::type_name;
 
 fn type_name_of<T>(_: T) -> &'static str {
@@ -14,7 +15,6 @@ fn type_name_of<T>(_: T) -> &'static str {
 pub enum ConsiderationType {
     Simple,
     Targeted,
-    TargetedFilter,
 }
 
 pub struct Consideration {
@@ -53,7 +53,7 @@ impl Consideration {
     }
 
     pub fn targeted<Q1: WorldQuery + 'static, Q2: WorldQuery + 'static>(
-        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, Res<AITargetEntitySets>),
+        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, Archetypes, Entities),
     ) -> Self {
         Consideration::construct(
             type_name_of(input).into(),
@@ -63,20 +63,7 @@ impl Consideration {
         )
     }
 
-    pub fn targeted_filter<F: Component>() -> Self {
-        let input = inclusive_targeted_filter_input::<F>;
-        Consideration::construct(
-            format!("targeted_filter_{}", type_name::<F>()),
-            input as usize,
-            ConsiderationType::TargetedFilter,
-            input.into_app_config(),
-        )
-    }
-
     pub fn with_response_curve(self, response_curve: impl ResponseCurve + 'static) -> Self {
-        if self.consideration_type == ConsiderationType::TargetedFilter {
-            panic!("Changing the response curve of a targeted filter is not supported!")
-        }
         Self {
             response_curve: Box::new(response_curve),
             ..self

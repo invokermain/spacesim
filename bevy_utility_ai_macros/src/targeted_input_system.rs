@@ -101,7 +101,8 @@ pub(crate) fn targeted_input_system(
             mut q_subject: bevy::prelude::Query<(bevy::prelude::Entity, &mut bevy_utility_ai::AIMeta #(, &#subject_arg_types)*)>,
             q_target: bevy::prelude::Query<(bevy::prelude::Entity #(, &#target_arg_types)*)>,
             res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>,
-            res_ai_target_entity_sets: bevy::prelude::Res<bevy_utility_ai::AITargetEntitySets>
+            archetypes: bevy::ecs::archetype::Archetypes,
+            entities: bevy::ecs::entity::Entities,
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
             let key = #name as usize;
@@ -110,23 +111,13 @@ pub(crate) fn targeted_input_system(
                 let _span = bevy::prelude::debug_span!("", entity = subject_entity_id.index()).entered();
 
                 let ai_definition = res_ai_definitions.map.get(&ai_meta.ai_definition).unwrap();
-                if !ai_definition.input_should_run(key, subject_entity_id) {
+                if !ai_definition.input_should_run(&key, subject_entity_id) {
                     bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
                 };
-
-                // Vec<usize> representing the filter sets this system should care about
-                let targeted_input_filter_sets = ai_definition
-                    .targeted_input_filter_sets.get(&key);
-
-                let target_entities = match targeted_input_filter_sets {
-                    // Some implies that this system should only evaluate for a limited set of entities
-                    Some(target_entity_sets) => {
-                        Some(res_ai_target_entity_sets.get_intersection_of(target_entity_sets))
-                    },
-                    // None implies we should check all entities
-                    None => None
-                };
+                let filter_component_sets = ai_definition
+                    .get_targeted_input_requirements(&key)
+                    .get_filter_component_sets();
 
 
                 let score_map = ai_meta
@@ -136,32 +127,32 @@ pub(crate) fn targeted_input_system(
 
                 #subject_data_line
 
-                if let Some(target_entities) = target_entities {
-                    bevy::prelude::debug!("calculating input for {} filter set entities", target_entities.len());
-                    for &target_entity in &target_entities {
-                        let (entity_id #(, #target_arg_names)*) = q_target.get(target_entity).unwrap();
-                        let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
-                        if entity_id == subject_entity_id {
-                            continue;
-                        }
-                        let #target_ident = (#(#target_arg_names, )*);
-                        let score =  #body;
-                        let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
-                        *entry = score;
-                        bevy::prelude::debug!("score {:.2}", score);
+                for (entity_id #(, #target_arg_names)*) in q_target.iter() {
+                    let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
+
+                    let matches_filters = {
+                        if let Some(filter_component_sets) = filter_component_sets {
+                            let archetype = archetypes
+                                .get(entities.get(entity_id).unwrap().archetype_id)
+                                .unwrap();
+                            filter_component_sets.iter().all(|component_set| {
+                                component_set
+                                    .iter()
+                                    .all(|&component| archetype.contains(component))
+                            })
+                        };
+                        true
+                    };
+
+                    if !matches_filters || entity_id == subject_entity_id {
+                        continue;
                     }
-                } else {
-                    for (entity_id #(, #target_arg_names)*) in q_target.iter() {
-                        let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
-                        if entity_id == subject_entity_id {
-                            continue;
-                        }
-                        let #target_ident = (#(#target_arg_names, )*);
-                        let score =  #body;
-                        let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
-                        *entry = score;
-                        bevy::prelude::debug!("score {:.2}", score);
-                    }
+
+                    let #target_ident = (#(#target_arg_names, )*);
+                    let score =  #body;
+                    let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
+                    *entry = score;
+                    bevy::prelude::debug!("score {:.2}", score);
                 }
             }
         }
