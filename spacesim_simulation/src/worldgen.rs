@@ -1,3 +1,4 @@
+use crate::common::components::Name;
 use bevy::prelude::Commands;
 
 use crate::economy::{
@@ -48,11 +49,11 @@ pub fn create_world(mut commands: Commands) {
             .id();
 
         let mut planet_bundle = PlanetBundle::new(
-            "Earth".into(),
+            "Earth",
             Population {
                 consumption: [0.4, 0.3, 0.0],
             },
-            SystemCoordinates::new(151_000_000., 10_000_000., 10_000_000.),
+            SystemCoordinates::new(152_000_000., 10_000_000., 10_000_000.),
         );
 
         planet_bundle.market.add_members(vec![company_id]);
@@ -87,7 +88,7 @@ pub fn create_world(mut commands: Commands) {
             .id();
 
         let mut planet_bundle = PlanetBundle::new(
-            "Mars".into(),
+            "Mars",
             Population {
                 consumption: [0.1, 0.1, 0.5],
             },
@@ -103,11 +104,10 @@ pub fn create_world(mut commands: Commands) {
     // TWO LONELY SHIPS
     {
         commands.spawn_batch(vec![
-            ShipBundle::new(SystemCoordinates::new(
-                200_000_000.,
-                5_000_000.,
-                -5_000_000.,
-            )),
+            ShipBundle::new(
+                Name::new("Close To Home"),
+                SystemCoordinates::new(200_000_000., 5_000_000., -5_000_000.),
+            ),
             // ShipBundle::new(SystemCoordinates::new(
             //     200_000_000.,
             //     -5_000_000.,

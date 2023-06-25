@@ -1,4 +1,5 @@
 use bevy::prelude::{Bundle, Component, Entity};
+use std::borrow::Cow;
 
 use crate::common::components::Name;
 use crate::common::marker_components::IsPlanet;
@@ -37,9 +38,13 @@ pub struct PlanetBundle {
 }
 
 impl PlanetBundle {
-    pub fn new(name: String, population: Population, coordinates: SystemCoordinates) -> Self {
+    pub fn new(
+        name: impl Into<Cow<'static, str>>,
+        population: Population,
+        coordinates: SystemCoordinates,
+    ) -> Self {
         Self {
-            name: Name { value: name },
+            name: Name::new(name),
             market: Market::default(),
             population,
             companies: Companies { value: Vec::new() },

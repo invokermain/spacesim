@@ -1,5 +1,6 @@
 use bevy::prelude::{Component, Transform, Vec3};
 
+/// SystemCoordinates, 1 unit = 1 km
 #[derive(Component, Clone)]
 pub struct SystemCoordinates {
     pub value: Vec3,

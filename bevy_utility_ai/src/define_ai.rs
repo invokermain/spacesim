@@ -124,7 +124,6 @@ impl<T: Component> DefineAI<T> {
                         }
                     });
             }
-            app.add_system(ensure_entity_has_ai_meta::<T>);
 
             app.world.insert_resource(added_systems);
         }

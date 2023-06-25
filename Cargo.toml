@@ -2,6 +2,7 @@
 
 members = ["spacesim", "spacesim_simulation", "bevy_utility_ai", "bevy_utility_ai_macros"]
 resolver = "2"
+default-members = ["spacesim"]
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

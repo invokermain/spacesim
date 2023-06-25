@@ -29,10 +29,10 @@ pub(crate) fn draw_ships(
         painter.color = Color::WHITE;
         painter.cap = Cap::None;
 
-        painter.set_rotation(Quat::from_rotation_x(-0.25 * PI));
-        painter.rect(Vec2::new(0.01, 0.10));
+        // painter.set_rotation(Quat::from_rotation_x(-0.25 * PI));
+        // painter.rect(Vec2::new(0.01, 0.10));
 
-        painter.set_rotation(Quat::from_rotation_x(0.25 * PI));
+        // painter.set_rotation(Quat::from_rotation_x(0.25 * PI));
         painter.rect(Vec2::new(0.01, 0.10));
     }
 }

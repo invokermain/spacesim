@@ -14,7 +14,8 @@ pub struct AstralBodySimulationPlugin;
 impl Plugin for AstralBodySimulationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system(
-            orbit_planetary_body.run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE))),
+            orbit_planetary_body
+                .run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE))),
         );
     }
 }

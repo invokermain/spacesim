@@ -43,11 +43,11 @@ impl CommodityStorage {
     }
 
     pub fn can_store(&self, units: f32) -> bool {
-        return units <= self.available_capacity;
+        units <= self.available_capacity
     }
 
     pub fn can_remove(&self, commodity_type: CommodityType, units: f32) -> bool {
-        return units <= self.storage[commodity_type as usize];
+        units <= self.storage[commodity_type as usize]
     }
 
     pub fn store(&mut self, commodity_type: CommodityType, units: f32) {

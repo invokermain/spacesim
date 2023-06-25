@@ -1,5 +1,5 @@
 use crate::response_curves::{LinearCurve, ResponseCurve};
-use crate::systems::inclusive_filter_input;
+use crate::systems::inclusive_targeted_filter_input;
 use crate::{AIDefinitions, AITargetEntitySets};
 use bevy::app::{IntoSystemAppConfig, SystemAppConfig};
 use bevy::ecs::query::WorldQuery;
@@ -22,41 +22,55 @@ pub struct Consideration {
     pub input: usize,
     pub response_curve: Box<dyn ResponseCurve>,
     pub consideration_type: ConsiderationType,
+    // This is Option to allow it to be Taken out later on as SystemAppConfig does not implement
+    // clone.
     pub(crate) system_app_config: Option<SystemAppConfig>,
 }
 
 impl Consideration {
-    pub fn simple<Q: WorldQuery + 'static>(input: fn(Query<Q>, Res<AIDefinitions>)) -> Self {
+    fn construct(
+        input_name: String,
+        input: usize,
+        consideration_type: ConsiderationType,
+        system_app_config: SystemAppConfig,
+    ) -> Self {
         Self {
-            input_name: type_name_of(input).into(),
-            input: input as usize,
+            input_name,
+            input,
+            consideration_type,
+            system_app_config: Some(system_app_config),
             response_curve: Box::new(LinearCurve::new(1.0)),
-            consideration_type: ConsiderationType::Simple,
-            system_app_config: Some(input.into_app_config()),
         }
+    }
+
+    pub fn simple<Q: WorldQuery + 'static>(input: fn(Query<Q>, Res<AIDefinitions>)) -> Self {
+        Consideration::construct(
+            type_name_of(input).into(),
+            input as usize,
+            ConsiderationType::Simple,
+            input.into_app_config(),
+        )
     }
 
     pub fn targeted<Q1: WorldQuery + 'static, Q2: WorldQuery + 'static>(
         input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, Res<AITargetEntitySets>),
     ) -> Self {
-        Self {
-            input_name: type_name_of(input).into(),
-            input: input as usize,
-            response_curve: Box::new(LinearCurve::new(1.0)),
-            consideration_type: ConsiderationType::Targeted,
-            system_app_config: Some(input.into_app_config()),
-        }
+        Consideration::construct(
+            type_name_of(input).into(),
+            input as usize,
+            ConsiderationType::Targeted,
+            input.into_app_config(),
+        )
     }
 
     pub fn targeted_filter<F: Component>() -> Self {
-        let input = inclusive_filter_input::<F>;
-        Self {
-            input_name: format!("targeted_filter_{}", type_name::<F>()),
-            input: input as usize,
-            response_curve: Box::new(LinearCurve::new(1.0)),
-            consideration_type: ConsiderationType::TargetedFilter,
-            system_app_config: Some(input.into_app_config()),
-        }
+        let input = inclusive_targeted_filter_input::<F>;
+        Consideration::construct(
+            format!("targeted_filter_{}", type_name::<F>()),
+            input as usize,
+            ConsiderationType::TargetedFilter,
+            input.into_app_config(),
+        )
     }
 
     pub fn with_response_curve(self, response_curve: impl ResponseCurve + 'static) -> Self {
@@ -69,7 +83,10 @@ impl Consideration {
         }
     }
 
-    pub fn set_input_name(self, input_name: String) -> Self {
-        Self { input_name, ..self }
+    pub fn set_input_name(self, input_name: impl Into<String>) -> Self {
+        Self {
+            input_name: input_name.into(),
+            ..self
+        }
     }
 }

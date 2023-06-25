@@ -1,17 +1,18 @@
 use bevy::prelude::{
-    debug, debug_span, AppTypeRegistry, Events, ReflectComponent, ReflectDefault, World,
+    debug, debug_span, AppTypeRegistry, Entity, Events, ReflectComponent, ReflectDefault,
+    World,
 };
+use std::any::TypeId;
 
-use crate::systems::UpdateEntityAction;
 use crate::ActionTarget;
 
-pub(crate) fn update_action(world: &mut World) {
+pub(crate) fn update_actions_sys(world: &mut World) {
     let _span = debug_span!("Updating Actions").entered();
 
     let type_registry = world.remove_resource::<AppTypeRegistry>().unwrap();
 
     let mut events = world
-        .remove_resource::<Events<UpdateEntityAction>>()
+        .remove_resource::<Events<UpdateEntityActionInternal>>()
         .unwrap();
 
     if !events.is_empty() {
@@ -19,7 +20,7 @@ pub(crate) fn update_action(world: &mut World) {
         let registry_read = type_registry.read();
 
         for event in events.drain() {
-            let UpdateEntityAction {
+            let UpdateEntityActionInternal {
                 entity_id,
                 old_action,
                 new_action,
@@ -79,4 +80,12 @@ pub(crate) fn update_action(world: &mut World) {
 
     world.insert_resource(type_registry);
     world.insert_resource(events);
+}
+
+pub(crate) struct UpdateEntityActionInternal {
+    pub(crate) entity_id: Entity,
+    pub(crate) old_action: Option<TypeId>,
+    pub(crate) new_action: TypeId,
+    pub(crate) old_target: Option<Entity>,
+    pub(crate) new_target: Option<Entity>,
 }

@@ -35,7 +35,8 @@ pub fn company_simulate(
             producable_commodities.sort_by(|a, b| f32::total_cmp(&b.1, &a.1));
 
             for (producable, _) in producable_commodities {
-                let units = f32::min(producable.output_per_tick, buyer.storage.available_capacity);
+                let units =
+                    f32::min(producable.output_per_tick, buyer.storage.available_capacity);
                 let cost = units * producable.cost_per_unit;
 
                 // we can produce something

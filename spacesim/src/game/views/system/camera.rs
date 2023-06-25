@@ -3,9 +3,10 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::{
     Camera3d, Camera3dBundle, Color, Commands, Component, EventReader, Input, Mat3,
     MouseButton, PerspectiveProjection, Projection, Quat, Query, Res, ResMut, Transform, Vec2,
-    Vec3,
+    Vec3, With,
 };
 
+use bevy::window::PrimaryWindow;
 use bevy::{utils::default, window::Window};
 
 use super::SystemViewHandles;
@@ -31,7 +32,7 @@ impl Default for PanOrbitCamera {
 
 /// Pan the camera with middle mouse click, zoom with scroll wheel, orbit with right mouse click.
 pub(super) fn pan_orbit_camera(
-    q_window: Query<&Window>,
+    q_window: Query<&Window, With<PrimaryWindow>>,
     mut ev_motion: EventReader<MouseMotion>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,

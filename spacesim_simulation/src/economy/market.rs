@@ -64,7 +64,7 @@ impl Default for Market {
             demand_history: market_history_vec.clone(),
             total_supply_history: market_history_vec.clone(),
             purchase_price_history: market_history_vec.clone(),
-            sale_price_history: market_history_vec.clone(),
+            sale_price_history: market_history_vec,
         }
     }
 }
@@ -79,10 +79,10 @@ impl Market {
 /// Market calculations and core logic etc etc
 impl Market {
     fn calculate_demand_modifier(&self, commodity_type: CommodityType) -> f32 {
-        let supply_pressure =
-            self.supply_pressure[commodity_type as usize] / MARKET_FORCES_HISTORY_LENGTH as f32;
-        let demand_pressure =
-            self.demand_pressure[commodity_type as usize] / MARKET_FORCES_HISTORY_LENGTH as f32;
+        let supply_pressure = self.supply_pressure[commodity_type as usize]
+            / MARKET_FORCES_HISTORY_LENGTH as f32;
+        let demand_pressure = self.demand_pressure[commodity_type as usize]
+            / MARKET_FORCES_HISTORY_LENGTH as f32;
         let delta = supply_pressure - demand_pressure;
         let supply = self.total_supply[commodity_type as usize];
 
@@ -105,7 +105,7 @@ impl Market {
         let commodity_idx = commodity_type as usize;
         self.tick_total_demand[commodity_idx] += units;
 
-        if self.total_supply[commodity_idx] <= 0.001 || self.market_members.len() == 0 {
+        if self.total_supply[commodity_idx] <= 0.001 || self.market_members.is_empty() {
             return MarketConsumeResult {
                 commodity_type,
                 requested_units: units,
@@ -192,22 +192,19 @@ impl Market {
             return Err(format!(
                 "Seller does not have {:.2} units of {:?} available",
                 units, commodity_type
-            )
-            .into());
+            ));
         }
         if !buyer_storage.can_store(*units) {
             return Err(format!(
                 "Buyer does not have room to store {:.2} units of {:?} available",
                 units, commodity_type
-            )
-            .into());
+            ));
         }
         if buyer_wealth.value < transaction_total_cost {
             return Err(format!(
                 "Buyer cannot afford {:.2} cost, they only have {:.2} available",
                 transaction_total_cost, buyer_wealth.value
-            )
-            .into());
+            ));
         }
 
         seller_storage.remove(*commodity_type, *units);
@@ -257,22 +254,19 @@ impl Market {
             return Err(format!(
                 "Seller does not have {:.2} units of {:?} available",
                 units, commodity_type
-            )
-            .into());
+            ));
         }
         if !buyer_storage.can_store(*units) {
             return Err(format!(
                 "Buyer does not have room to store {:.2} units of {:?} available",
                 units, commodity_type
-            )
-            .into());
+            ));
         }
         if buyer_wealth.value < transaction_total_cost {
             return Err(format!(
                 "Buyer cannot afford {:.2} cost, they only have {:.2} available",
                 transaction_total_cost, buyer_wealth.value
-            )
-            .into());
+            ));
         }
 
         seller_storage.remove(*commodity_type, *units);
@@ -314,8 +308,7 @@ impl Market {
             return Err(format!(
                 "Buyer does not have {:.2} units of free space available",
                 units
-            )
-            .into());
+            ));
         }
 
         buyer.storage.store(commodity_type, units);
@@ -369,7 +362,8 @@ impl Market {
                 self.calculate_demand_modifier(commodity_type);
 
             self.total_supply_history[commodity_idx].pop_back();
-            self.total_supply_history[commodity_idx].push_front(self.total_supply[commodity_idx]);
+            self.total_supply_history[commodity_idx]
+                .push_front(self.total_supply[commodity_idx]);
 
             // reset per tick trackers
             self.tick_total_supply[commodity_idx] = 0.0;

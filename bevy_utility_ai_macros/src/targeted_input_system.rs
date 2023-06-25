@@ -109,29 +109,20 @@ pub(crate) fn targeted_input_system(
             for (subject_entity_id, mut ai_meta #(, #subject_arg_names)*) in q_subject.iter_mut() {
                 let _span = bevy::prelude::debug_span!("", entity = subject_entity_id.index()).entered();
 
-                let is_required = res_ai_definitions
-                    .map[&ai_meta.ai_definition]
-                    .required_inputs
-                    .contains(&key);
-                if !is_required {
+                let ai_definition = res_ai_definitions.map.get(&ai_meta.ai_definition).unwrap();
+                if !ai_definition.input_should_run(key, subject_entity_id) {
                     bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
                 };
 
                 // Vec<usize> representing the filter sets this system should care about
-                let targeted_input_filter_sets = res_ai_definitions
-                    .map[&ai_meta.ai_definition]
+                let targeted_input_filter_sets = ai_definition
                     .targeted_input_filter_sets.get(&key);
 
                 let target_entities = match targeted_input_filter_sets {
                     // Some implies that this system should only evaluate for a limited set of entities
                     Some(target_entity_sets) => {
-                        Some(target_entity_sets
-                            .iter()
-                            .map(|&set_key| res_ai_target_entity_sets.get(set_key))
-                            .flatten()
-                            .collect::<Vec<bevy::prelude::Entity>>()
-                        )
+                        Some(res_ai_target_entity_sets.get_intersection_of(target_entity_sets))
                     },
                     // None implies we should check all entities
                     None => None

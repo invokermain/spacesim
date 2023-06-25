@@ -16,10 +16,20 @@ use bevy::{
 };
 
 pub struct AIDefinition {
+    /// The decisions that make up this AIDefinition
     pub decisions: Vec<Decision>,
+    /// The set of inputs that are required for this AIDefinition.
     pub required_inputs: HashSet<usize>,
-    /// map of targeted_input_system key to set of target filter set keys, seeAITargetEntitySets
+    /// A map of `targeted_input_system` key to set of `inclusive_targeted_filter_input` keys, see
+    /// AITargetEntitySets
     pub targeted_input_filter_sets: HashMap<usize, Vec<usize>>,
+}
+
+impl AIDefinition {
+    // TODO: input staleness can be implemented here
+    pub fn input_should_run(&self, input: usize, _entity: Entity) -> bool {
+        self.required_inputs.contains(&input)
+    }
 }
 
 #[derive(Resource, Default)]
@@ -27,19 +37,26 @@ pub struct AIDefinitions {
     pub map: HashMap<TypeId, AIDefinition>,
 }
 
+/// This Resource contains a map of `inclusive_targeted_filter_input` keys to a set of entities.
+/// Targeted input systems can look up the relevant filters using this resource when they run.
+/// The system will lookup what filters it will respect against the entity's associated AIDefinition
 #[derive(Resource, Default)]
 pub struct AITargetEntitySets {
-    // map of filter_system key to entity set
     entity_set_map: HashMap<usize, HashSet<Entity>>,
 }
 
 impl AITargetEntitySets {
-    pub fn get(&self, entity_set: usize) -> Vec<Entity> {
-        self.entity_set_map
-            .get(&entity_set)
+    pub fn get_intersection_of<'a>(
+        &self,
+        entity_sets: impl IntoIterator<Item = &'a usize>,
+    ) -> Vec<Entity> {
+        entity_sets
             .into_iter()
-            .flatten()
+            .filter_map(|set_key| self.entity_set_map.get(set_key))
             .cloned()
+            .reduce(|acc, e| acc.intersection(&e).cloned().collect())
+            .unwrap()
+            .into_iter()
             .collect()
     }
 
@@ -67,4 +84,37 @@ pub struct Decision {
     pub targeted_considerations: Vec<Consideration>,
     pub targeted_filter_considerations: Vec<Consideration>,
     pub is_targeted: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::AITargetEntitySets;
+    use bevy::prelude::Entity;
+    use bevy::utils::hashbrown::HashMap;
+    use bevy::utils::HashSet;
+
+    #[test]
+    fn aitarget_entity_sets_get_intersection_of() {
+        let x = AITargetEntitySets {
+            entity_set_map: HashMap::from_iter(vec![
+                (
+                    1,
+                    HashSet::from_iter(vec![Entity::from_raw(0), Entity::from_raw(1)]),
+                ),
+                (
+                    2,
+                    HashSet::from_iter(vec![Entity::from_raw(1), Entity::from_raw(2)]),
+                ),
+            ]),
+        };
+
+        assert_eq!(
+            x.get_intersection_of(vec![&1]),
+            vec![Entity::from_raw(0), Entity::from_raw(1)]
+        );
+        assert_eq!(
+            x.get_intersection_of(vec![&1, &2]),
+            vec![Entity::from_raw(1)]
+        );
+    }
 }

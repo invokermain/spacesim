@@ -8,3 +8,4 @@ bevy_utility_ai = { path = "../bevy_utility_ai" }
 bevy = { version = "0.10.1", default-features = false }
 strum = "0.24.1"
 strum_macros = "0.24.3"
+

@@ -1,12 +1,13 @@
-use crate::systems::UpdateEntityAction;
+use crate::systems::update_action::UpdateEntityActionInternal;
 use crate::{AIDefinitions, AIMeta, Decision};
 use bevy::log::{debug, debug_span};
 use bevy::prelude::{Entity, EventWriter, Query, Res};
 use bevy::utils::HashMap;
 
-pub(crate) fn make_decisions(
+pub(crate) fn make_decisions_sys(
     mut query: Query<(Entity, &mut AIMeta)>,
-    mut event_writer: EventWriter<UpdateEntityAction>,
+    mut event_writer: EventWriter<UpdateEntityActionInternal>,
+    mut event_writer_pub: EventWriter<EntityActionChangeEvent>,
     ai_definitions: Res<AIDefinitions>,
 ) {
     let _span = debug_span!("Making Decisions").entered();
@@ -153,14 +154,25 @@ pub(crate) fn make_decisions(
                 panic!("How did we get here?");
             }
 
-            // Change our currection action, we do this in another system as it will
+            // Change our current action, we do this in another system as it will
             // unfortunately require mut World access so isn't parallelisable.
-            event_writer.send(UpdateEntityAction {
+            // TODO: this might be refactored to use EntityCommands at some point
+            event_writer.send(UpdateEntityActionInternal {
                 entity_id,
                 old_action: ai_meta.current_action,
                 new_action: *action,
                 old_target: ai_meta.current_target,
                 new_target: *target,
+            });
+
+            event_writer_pub.send(EntityActionChangeEvent {
+                entity_id,
+                prev_action: ai_meta.current_action_name.clone(),
+                new_action: action_name.clone(),
+                prev_target: ai_meta.current_target,
+                new_target: *target,
+                prev_score: ai_meta.current_action_score,
+                new_score: *score,
             });
 
             ai_meta.current_action = Some(*action);
@@ -169,4 +181,16 @@ pub(crate) fn make_decisions(
             ai_meta.current_target = *target;
         }
     }
+}
+
+/// This event is for public consumption.
+/// Note that action might stay the same but target can change.
+pub struct EntityActionChangeEvent {
+    pub entity_id: Entity,
+    pub prev_action: String,
+    pub new_action: String,
+    pub prev_target: Option<Entity>,
+    pub new_target: Option<Entity>,
+    pub prev_score: f32,
+    pub new_score: f32,
 }

@@ -66,14 +66,12 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
             for (entity, mut ai_meta #(, #arg_names)*) in query.iter_mut() {
                 let _span = bevy::prelude::debug_span!("", entity = entity.index()).entered();
 
-                let is_required = res_ai_definitions
-                    .map[&ai_meta.ai_definition]
-                    .required_inputs
-                    .contains(&key);
-                if !is_required {
-                    bevy::prelude::debug!("skipped as does not require this input");
+                let ai_definition = res_ai_definitions.map[&ai_meta.ai_definition];
+
+                if !ai_definition.input_should_run(key, subject_entity_id) {
+                    bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
-                }
+                };
 
                 let score = #body;
                 let mut entry = ai_meta.input_scores.entry(key).or_insert(f32::NEG_INFINITY);
