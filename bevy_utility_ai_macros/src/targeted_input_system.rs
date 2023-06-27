@@ -115,10 +115,9 @@ pub(crate) fn targeted_input_system(
                     bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
                 };
-                let filter_component_sets = ai_definition
+                let target_filter = &ai_definition
                     .get_targeted_input_requirements(&key)
-                    .get_filter_component_sets();
-
+                    .target_filter;
 
                 let score_map = ai_meta
                     .targeted_input_scores
@@ -131,17 +130,18 @@ pub(crate) fn targeted_input_system(
                     let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
 
                     let matches_filters = {
-                        if let Some(filter_component_sets) = filter_component_sets {
-                            let archetype = archetypes
-                                .get(entities.get(entity_id).unwrap().archetype_id)
-                                .unwrap();
-                            filter_component_sets.iter().all(|component_set| {
-                                component_set
-                                    .iter()
-                                    .all(|&component| archetype.contains(component))
-                            })
-                        } else {
-                            true
+                        match target_filter {
+                            bevy_utility_ai::FilterDefinition::Any => true,
+                            bevy_utility_ai::FilterDefinition::Filtered(filter_component_sets) => {
+                                let archetype = archetypes
+                                    .get(entities.get(entity_id).unwrap().archetype_id)
+                                    .unwrap();
+                                filter_component_sets.iter().all(|component_set| {
+                                    component_set
+                                        .iter()
+                                        .all(|&component| archetype.contains(component))
+                                })
+                            }
                         }
                     };
 

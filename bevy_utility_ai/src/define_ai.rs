@@ -14,6 +14,8 @@ use bevy::{
 };
 use std::any::TypeId;
 use std::marker::PhantomData;
+use std::mem;
+use std::rc::Rc;
 
 /// A builder which allows you declaratively specify your AI
 /// and returns a bundle that you can add to an entity.
@@ -28,10 +30,12 @@ pub struct DefineAI<T: Component> {
     /// A vec of all actions defined as part of this AI, will be registered to the App.
     action_type_registrations: Vec<TypeRegistration>,
     marker_phantom: PhantomData<T>,
+    /// We store the target_filters here temporarily so we can use them later (they do not impl Clone)
+    target_filters: Vec<Rc<ComponentDescriptor>>,
 }
 
 pub struct UnregisteredTargetedInputRequirements {
-    pub target_filter: FilterDefinition<Vec<ComponentDescriptor>>,
+    pub target_filter: FilterDefinition<Rc<ComponentDescriptor>>,
 }
 
 impl UnregisteredTargetedInputRequirements {
@@ -40,13 +44,18 @@ impl UnregisteredTargetedInputRequirements {
             FilterDefinition::Any => TargetedInputRequirements {
                 target_filter: FilterDefinition::Any,
             },
-            FilterDefinition::Filtered(mut component_sets) => {
+            FilterDefinition::Filtered(component_sets) => {
                 let mut component_id_sets = Vec::new();
-                for component_set in component_sets.iter_mut() {
+                for component_set in component_sets.iter() {
                     component_id_sets.push(
                         component_set
-                            .drain()
-                            .map(|desc| app.world.init_component_with_descriptor(desc))
+                            .iter()
+                            .map(|desc| {
+                                app.world.init_component_with_descriptor(
+                                    Rc::<ComponentDescriptor>::into_inner(desc.clone())
+                                        .unwrap(),
+                                )
+                            })
                             .collect(),
                     );
                 }
@@ -66,21 +75,23 @@ impl<T: Component> DefineAI<T> {
             simple_inputs: HashSet::new(),
             targeted_inputs: HashMap::new(),
             action_type_registrations: Vec::new(),
+            target_filters: Vec::new(),
         }
     }
 
     pub fn add_decision(mut self, mut decision: Decision) -> DefineAI<T> {
+        let target_filters = mem::take(&mut decision.target_filters);
+        self.target_filters = target_filters.into_iter().map(|f| Rc::new(f)).collect();
+
         for consideration in &decision.considerations {
             match consideration.consideration_type {
                 ConsiderationType::Simple => {
                     self.simple_inputs.insert(consideration.input);
                 }
                 ConsiderationType::Targeted => {
-                    let filter_definition = match !decision.target_filters.is_empty() {
+                    let filter_definition = match !self.target_filters.is_empty() {
                         true => FilterDefinition::Any,
-                        false => FilterDefinition::Filtered(vec![HashSet::from_iter(
-                            decision.target_filters.into_iter(),
-                        )]),
+                        false => FilterDefinition::Filtered(vec![self.target_filters.clone()]),
                     };
                     if let Some(req) = self.targeted_inputs.get_mut(&consideration.input) {
                         req.target_filter = req.target_filter.merge(&filter_definition)

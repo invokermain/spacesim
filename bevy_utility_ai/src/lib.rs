@@ -18,13 +18,13 @@ use bevy::{
     utils::{HashMap, HashSet},
 };
 
-pub enum FilterDefinition {
+pub enum FilterDefinition<T> {
     Any,
-    Filtered(Vec<Vec<ComponentId>>),
+    Filtered(Vec<Vec<T>>),
 }
 
-impl FilterDefinition {
-    pub fn merge(&mut self, other: &FilterDefinition) -> FilterDefinition {
+impl<T: Clone> FilterDefinition<T> {
+    pub fn merge(&mut self, other: &FilterDefinition<T>) -> FilterDefinition<T> {
         match (self, other) {
             (FilterDefinition::Any, FilterDefinition::Any) => FilterDefinition::Any,
             (FilterDefinition::Filtered(_), FilterDefinition::Any) => FilterDefinition::Any,
@@ -39,7 +39,7 @@ impl FilterDefinition {
 }
 
 pub struct TargetedInputRequirements {
-    pub target_filter: FilterDefinition,
+    pub target_filter: FilterDefinition<ComponentId>,
 }
 
 pub struct AIDefinition {
@@ -53,15 +53,18 @@ pub struct AIDefinition {
 
 impl AIDefinition {
     pub fn requires_targeted_input(&self, input: &usize) -> bool {
-        // TODO: doesn't feel great that we have to do two lookups, maybe a design smell
-        self.simple_inputs.contains(input) || self.targeted_inputs.contains_key(input)
+        self.targeted_inputs.contains_key(input)
+    }
+
+    pub fn requires_simple_input(&self, input: &usize) -> bool {
+        self.simple_inputs.contains(input)
     }
 
     pub fn get_targeted_input_requirements(
         &self,
         input: &usize,
     ) -> &TargetedInputRequirements {
-        &self.targeted_inputs[&input]
+        &self.targeted_inputs[input]
     }
 }
 

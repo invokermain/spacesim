@@ -1,10 +1,8 @@
 use crate::considerations::Consideration;
-use bevy::ecs::component::{ComponentDescriptor, ComponentId};
+use bevy::ecs::component::ComponentDescriptor;
 use bevy::prelude::Component;
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use std::any::{type_name, TypeId};
-
-pub trait ActionComponent: Component + GetTypeRegistration {}
 
 pub struct Decision {
     pub(crate) name: String,
@@ -17,7 +15,7 @@ pub struct Decision {
 }
 
 impl Decision {
-    pub fn simple<C: ActionComponent>(name: impl Into<String>) -> Self {
+    pub fn simple<C: Component + GetTypeRegistration>(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             action_name: type_name::<C>().into(),
@@ -29,7 +27,7 @@ impl Decision {
         }
     }
 
-    pub fn targeted<C: ActionComponent>(name: impl Into<String>) -> Self {
+    pub fn targeted<C: Component + GetTypeRegistration>(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             action_name: type_name::<C>().into(),

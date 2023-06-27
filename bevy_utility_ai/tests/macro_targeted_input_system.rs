@@ -2,6 +2,7 @@ mod common;
 
 use crate::common::{SomeOtherData, AA};
 use bevy::ecs::archetype::Archetypes;
+use bevy::ecs::component::ComponentId;
 use bevy::ecs::entity::Entities;
 use bevy::prelude::{Component, Query};
 use bevy::utils::hashbrown::HashSet;
@@ -209,9 +210,9 @@ fn scrap() {
                 bevy::prelude::debug!("skipped calculating inputs for this entity");
                 continue;
             };
-            let filter_component_sets = ai_definition
+            let target_filter = &ai_definition
                 .get_targeted_input_requirements(&key)
-                .get_filter_component_sets();
+                .target_filter;
 
             let score_map = ai_meta
                 .targeted_input_scores
@@ -224,17 +225,18 @@ fn scrap() {
                     .entered();
 
                 let matches_filters = {
-                    if let Some(filter_component_sets) = filter_component_sets {
-                        let archetype = archetypes
-                            .get(entities.get(entity_id).unwrap().archetype_id)
-                            .unwrap();
-                        filter_component_sets.iter().all(|component_set| {
-                            component_set
-                                .iter()
-                                .all(|&component| archetype.contains(component))
-                        })
-                    } else {
-                        true
+                    match target_filter {
+                        FilterDefinition::Any => true,
+                        FilterDefinition::Filtered(filter_component_sets) => {
+                            let archetype = archetypes
+                                .get(entities.get(entity_id).unwrap().archetype_id)
+                                .unwrap();
+                            filter_component_sets.iter().all(|component_set| {
+                                component_set
+                                    .iter()
+                                    .all(|&component| archetype.contains(component))
+                            })
+                        }
                     }
                 };
 

@@ -66,9 +66,9 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
             for (entity, mut ai_meta #(, #arg_names)*) in query.iter_mut() {
                 let _span = bevy::prelude::debug_span!("", entity = entity.index()).entered();
 
-                let ai_definition = res_ai_definitions.map[&ai_meta.ai_definition];
+                let ai_definition = &res_ai_definitions.map[&ai_meta.ai_definition];
 
-                if !ai_definition.input_should_run(key, subject_entity_id) {
+                if !ai_definition.requires_simple_input(&key) {
                     bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
                 };
