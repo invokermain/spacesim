@@ -12,19 +12,43 @@ pub use crate::ai_meta::AIMeta;
 use std::any::TypeId;
 
 use crate::decisions::Decision;
-use crate::define_ai::TargetedInputRequirements;
+use bevy::ecs::component::ComponentId;
 use bevy::{
     prelude::{Component, Entity, Resource},
     utils::{HashMap, HashSet},
 };
 
+pub enum FilterDefinition {
+    Any,
+    Filtered(Vec<Vec<ComponentId>>),
+}
+
+impl FilterDefinition {
+    pub fn merge(&mut self, other: &FilterDefinition) -> FilterDefinition {
+        match (self, other) {
+            (FilterDefinition::Any, FilterDefinition::Any) => FilterDefinition::Any,
+            (FilterDefinition::Filtered(_), FilterDefinition::Any) => FilterDefinition::Any,
+            (FilterDefinition::Any, FilterDefinition::Filtered(_)) => FilterDefinition::Any,
+            (FilterDefinition::Filtered(x), FilterDefinition::Filtered(y)) => {
+                let mut joined = x.clone();
+                joined.extend(y.clone());
+                FilterDefinition::Filtered(joined)
+            }
+        }
+    }
+}
+
+pub struct TargetedInputRequirements {
+    pub target_filter: FilterDefinition,
+}
+
 pub struct AIDefinition {
     /// The decisions that make up this AIDefinition
     pub decisions: Vec<Decision>,
     /// The simple inputs used for this AI, passed to AIDefinition on register.
-    simple_inputs: HashSet<usize>,
+    pub simple_inputs: HashSet<usize>,
     /// The targeted inputs used for this AI, passed to AIDefinition on register.
-    targeted_inputs: HashMap<usize, TargetedInputRequirements>,
+    pub targeted_inputs: HashMap<usize, TargetedInputRequirements>,
 }
 
 impl AIDefinition {

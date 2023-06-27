@@ -1,11 +1,12 @@
 mod common;
 
-use crate::common::SomeOtherData;
+use crate::common::{SomeOtherData, AA};
 use bevy::ecs::archetype::Archetypes;
 use bevy::ecs::entity::Entities;
 use bevy::prelude::{Component, Query};
 use bevy::utils::hashbrown::HashSet;
 use bevy::{app::App, utils::HashMap};
+use bevy_utility_ai::define_ai::{FilterDefinition, TargetedInputRequirements};
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta, AITargetEntitySets};
 use bevy_utility_ai_macros::targeted_input_system;
 use common::{SomeData, AI};
@@ -41,23 +42,28 @@ fn targeted_input_system_produces_valid_system() {
 }
 
 #[test]
-fn simple_targeted_input_system_updates_aimeta_inputs() {
+fn trivial_targeted_input_system_updates_aimeta_inputs() {
     #[targeted_input_system]
-    fn simple_targeted_input(target: (&SomeData,)) -> f32 {
+    fn trivial_targeted_input(target: (&SomeData,)) -> f32 {
         target.0.val
     }
 
     let mut app = test_app();
 
-    app.add_system(simple_targeted_input);
+    app.add_system(trivial_targeted_input);
 
     let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
     ai_definitions.map.insert(
         TypeId::of::<AI>(),
         AIDefinition {
             decisions: vec![], // this field doesn't matter for this test
-            required_inputs: HashSet::from_iter(vec![simple_targeted_input as usize]),
-            targeted_input_filter_sets: HashMap::new(),
+            simple_inputs: Default::default(),
+            targeted_inputs: HashMap::from_iter(vec![(
+                trivial_targeted_input as usize,
+                TargetedInputRequirements {
+                    target_filter: FilterDefinition::Any,
+                },
+            )]),
         },
     );
 
@@ -94,8 +100,13 @@ fn targeted_input_system_updates_aimeta_inputs() {
         TypeId::of::<AI>(),
         AIDefinition {
             decisions: vec![], // this field doesn't matter for this test
-            required_inputs: HashSet::from_iter(vec![targeted_input as usize]),
-            targeted_input_filter_sets: HashMap::new(),
+            simple_inputs: Default::default(),
+            targeted_inputs: HashMap::from_iter(vec![(
+                targeted_input as usize,
+                TargetedInputRequirements {
+                    target_filter: FilterDefinition::Any,
+                },
+            )]),
         },
     );
 
@@ -120,24 +131,29 @@ fn targeted_input_system_updates_aimeta_inputs() {
 }
 
 #[test]
-fn simple_targeted_input_system_respects_filter_set() {
+fn trivial_targeted_input_system_respects_filter_set() {
     #[targeted_input_system]
-    fn simple_targeted_input(target: (&SomeData,)) -> f32 {
+    fn trivial_targeted_input(target: (&SomeData,)) -> f32 {
         target.0.val
     }
 
     let mut app = test_app();
-    app.add_system(simple_targeted_input);
+    app.add_system(trivial_targeted_input);
 
     let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
+    let aa_component_id = app.world.init_component::<AA>();
     ai_definitions.map.insert(
         TypeId::of::<AI>(),
         AIDefinition {
             decisions: vec![], // this field doesn't matter for this test
-            required_inputs: HashSet::from_iter(vec![simple_targeted_input as usize]),
-            targeted_input_filter_sets: HashMap::from_iter(vec![(
-                simple_targeted_input as usize,
-                vec![1],
+            simple_inputs: Default::default(),
+            targeted_inputs: HashMap::from_iter(vec![(
+                trivial_targeted_input as usize,
+                TargetedInputRequirements {
+                    target_filter: FilterDefinition::Filtered(vec![HashSet::from_iter(vec![
+                        aa_component_id,
+                    ])]),
+                },
             )]),
         },
     );
@@ -145,7 +161,7 @@ fn simple_targeted_input_system_respects_filter_set() {
     // spawn some entities
     let entity_subject = app.world.spawn((AI {}, AIMeta::new::<AI>())).id();
     let entity_ignore = app.world.spawn(SomeData { val: 0.25 }).id();
-    let entity_target = app.world.spawn(SomeData { val: 0.75 }).id();
+    let entity_target = app.world.spawn((SomeData { val: 0.75 }, AA {})).id();
 
     let mut ai_target_entity_sets = app.world.resource_mut::<AITargetEntitySets>();
     ai_target_entity_sets.insert(1, entity_target);
@@ -178,8 +194,8 @@ fn scrap() {
         )>,
         q_target: bevy::prelude::Query<(bevy::prelude::Entity, &SomeData)>,
         res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>,
-        archetypes: bevy::ecs::archetype::Archetypes,
-        entities: bevy::ecs::entity::Entities,
+        archetypes: &bevy::ecs::archetype::Archetypes,
+        entities: &bevy::ecs::entity::Entities,
     ) {
         let _span =
             bevy::prelude::debug_span!("Calculating Targeted Input", input = "targeted_input")
@@ -189,7 +205,7 @@ fn scrap() {
             let _span =
                 bevy::prelude::debug_span!("", entity = subject_entity_id.index()).entered();
             let ai_definition = res_ai_definitions.map.get(&ai_meta.ai_definition).unwrap();
-            if !ai_definition.input_should_run(&key, subject_entity_id) {
+            if !ai_definition.requires_targeted_input(&key) {
                 bevy::prelude::debug!("skipped calculating inputs for this entity");
                 continue;
             };
@@ -217,8 +233,9 @@ fn scrap() {
                                 .iter()
                                 .all(|&component| archetype.contains(component))
                         })
-                    };
-                    true
+                    } else {
+                        true
+                    }
                 };
 
                 if !matches_filters || entity_id == subject_entity_id {
@@ -233,4 +250,6 @@ fn scrap() {
             }
         }
     }
+    let mut app = test_app();
+    app.add_system(targeted_input);
 }

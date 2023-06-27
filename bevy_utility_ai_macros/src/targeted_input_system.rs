@@ -101,8 +101,8 @@ pub(crate) fn targeted_input_system(
             mut q_subject: bevy::prelude::Query<(bevy::prelude::Entity, &mut bevy_utility_ai::AIMeta #(, &#subject_arg_types)*)>,
             q_target: bevy::prelude::Query<(bevy::prelude::Entity #(, &#target_arg_types)*)>,
             res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>,
-            archetypes: bevy::ecs::archetype::Archetypes,
-            entities: bevy::ecs::entity::Entities,
+            archetypes: &bevy::ecs::archetype::Archetypes,
+            entities: &bevy::ecs::entity::Entities,
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
             let key = #name as usize;
@@ -111,7 +111,7 @@ pub(crate) fn targeted_input_system(
                 let _span = bevy::prelude::debug_span!("", entity = subject_entity_id.index()).entered();
 
                 let ai_definition = res_ai_definitions.map.get(&ai_meta.ai_definition).unwrap();
-                if !ai_definition.input_should_run(&key, subject_entity_id) {
+                if !ai_definition.requires_targeted_input(&key) {
                     bevy::prelude::debug!("skipped calculating inputs for this entity");
                     continue;
                 };
@@ -140,8 +140,9 @@ pub(crate) fn targeted_input_system(
                                     .iter()
                                     .all(|&component| archetype.contains(component))
                             })
-                        };
-                        true
+                        } else {
+                            true
+                        }
                     };
 
                     if !matches_filters || entity_id == subject_entity_id {

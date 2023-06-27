@@ -53,7 +53,7 @@ impl Consideration {
     }
 
     pub fn targeted<Q1: WorldQuery + 'static, Q2: WorldQuery + 'static>(
-        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, Archetypes, Entities),
+        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, &Archetypes, &Entities),
     ) -> Self {
         Consideration::construct(
             type_name_of(input).into(),

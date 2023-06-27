@@ -1,5 +1,5 @@
 use crate::considerations::Consideration;
-use bevy::ecs::component::ComponentId;
+use bevy::ecs::component::{ComponentDescriptor, ComponentId};
 use bevy::prelude::Component;
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use std::any::{type_name, TypeId};
@@ -13,7 +13,7 @@ pub struct Decision {
     pub(crate) type_registration: TypeRegistration,
     pub(crate) is_targeted: bool,
     pub(crate) considerations: Vec<Consideration>,
-    pub(crate) target_filters: Vec<ComponentId>,
+    pub(crate) target_filters: Vec<ComponentDescriptor>,
 }
 
 impl Decision {
@@ -46,15 +46,12 @@ impl Decision {
         self
     }
 
-    pub fn set_target_filters(
-        mut self,
-        components: impl IntoIterator<Item = ComponentId>,
-    ) -> Self {
+    pub fn add_target_filter<C: Component>(mut self) -> Self {
         if !self.is_targeted {
             panic!("Only targeted Decisions may have target filters")
         }
 
-        self.target_filters = components.into_iter().collect();
+        self.target_filters.push(ComponentDescriptor::new::<C>());
         self
     }
 }
