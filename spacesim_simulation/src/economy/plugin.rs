@@ -1,13 +1,6 @@
-use std::time::Duration;
-
-use bevy::{
-    prelude::{IntoSystemConfig, IntoSystemSetConfig, Plugin, SystemSet},
-    time::common_conditions::on_timer,
-};
-
-use crate::common::SIMULATION_TICK_RATE;
-
 use super::systems::{company_simulate, population_consumption, update_market_statistics};
+use bevy::app::{CoreSchedule, IntoSystemAppConfig};
+use bevy::prelude::{IntoSystemConfig, IntoSystemSetConfig, Plugin, SystemSet};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 enum EconomySimulationSet {
@@ -21,18 +14,18 @@ impl Plugin for EconomySimulationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system(
             company_simulate
-                .run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE)))
-                .in_set(EconomySimulationSet::Simulate),
+                .in_set(EconomySimulationSet::Simulate)
+                .in_schedule(CoreSchedule::FixedUpdate),
         )
         .add_system(
             population_consumption
-                .run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE)))
-                .in_set(EconomySimulationSet::Simulate),
+                .in_set(EconomySimulationSet::Simulate)
+                .in_schedule(CoreSchedule::FixedUpdate),
         )
         .add_system(
             update_market_statistics
-                .run_if(on_timer(Duration::from_secs_f32(SIMULATION_TICK_RATE)))
-                .in_set(EconomySimulationSet::Aggregate),
+                .in_set(EconomySimulationSet::Aggregate)
+                .in_schedule(CoreSchedule::FixedUpdate),
         )
         .configure_set(EconomySimulationSet::Aggregate.after(EconomySimulationSet::Simulate));
     }

@@ -2,6 +2,7 @@ mod common;
 
 use crate::common::{SomeOtherData, AA};
 use bevy::{app::App, utils::HashMap};
+use bevy_utility_ai::decisions::Filter;
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta};
 use bevy_utility_ai::{FilterDefinition, TargetedInputRequirements};
 use bevy_utility_ai_macros::targeted_input_system;
@@ -144,7 +145,9 @@ fn trivial_targeted_input_system_respects_filter_set() {
             targeted_inputs: HashMap::from_iter(vec![(
                 trivial_targeted_input as usize,
                 TargetedInputRequirements {
-                    target_filter: FilterDefinition::Filtered(vec![vec![TypeId::of::<AA>()]]),
+                    target_filter: FilterDefinition::Filtered(vec![vec![Filter::Inclusive(
+                        TypeId::of::<AA>(),
+                    )]]),
                 },
             )]),
         },

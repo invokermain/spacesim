@@ -14,6 +14,7 @@ use super::components::SystemCoordinates;
 use crate::common::marker_components::IsPlanet;
 use crate::economy::components::CommodityStorage;
 use crate::economy::market::Market;
+use crate::planet::components::OnPlanet;
 
 // Marker component for our AI system
 #[derive(Component)]
@@ -22,6 +23,10 @@ pub struct ShipAI {}
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
 pub struct ActionMoveToPlanet {}
+
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct ActionPurchaseGoodsFromMarket {}
 
 /// Distance between two coordinates in km. Range: 0 -> f32::MAX
 #[targeted_input_system]
@@ -47,8 +52,9 @@ pub(super) fn define_ship_ai(app: &mut App) {
     DefineAI::<ShipAI>::new()
         .add_decision(
             Decision::targeted::<ActionMoveToPlanet>()
-                .add_target_filter::<IsPlanet>()
-                .add_target_filter::<Market>()
+                .target_filter_include::<IsPlanet>()
+                .target_filter_include::<Market>()
+                .subject_filter_exclude::<OnPlanet>()
                 .add_consideration(
                     Consideration::targeted(system_distance)
                         .with_response_curve(
@@ -62,6 +68,15 @@ pub(super) fn define_ship_ai(app: &mut App) {
                         .set_input_name("Available hold capacity"),
                 ),
         )
+        .add_decision(
+            Decision::simple::<ActionPurchaseGoodsFromMarket>()
+                .subject_filter_include::<OnPlanet>()
+                .add_consideration(
+                    Consideration::simple(free_hold_space_ratio)
+                        .with_response_curve(PolynomialCurve::new(1.0, 3.0))
+                        .set_input_name("Available hold capacity"),
+                ),
+        )
         .register(app);
 }
 
@@ -69,11 +84,11 @@ pub(super) fn define_ship_ai(app: &mut App) {
 // - TravelToPlanet(Target)
 
 // Decision "go to planet so we can buy stuff", action "TravelToPlanet(Target)"
-// - am I in space
-// - how empty my hold is
+// - am I in space ✔️ (I think... docking removes SystemCoordinates)
+// - how empty my hold is ✔️
 // - for each planet in system:
-//    - distance to the planet
-//    - how discounted goods are on the planet
+//    - distance to the planet ✔️
+//    - how discounted goods are on the planet ❌
 
 // Decision "go to planet so we can sell stuff", action "TravelToPlanet(Target)"
 // - am I in space

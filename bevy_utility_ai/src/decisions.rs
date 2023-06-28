@@ -3,14 +3,31 @@ use bevy::prelude::Component;
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use std::any::{type_name, TypeId};
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum Filter {
+    /// Entiy must contain Component with this TypeId
+    Inclusive(TypeId),
+    /// Entity must not contain Component with this TypeId
+    Exclusive(TypeId),
+}
+
+impl Filter {
+    pub fn component_type_id(&self) -> TypeId {
+        match self {
+            Filter::Inclusive(t) => *t,
+            Filter::Exclusive(t) => *t,
+        }
+    }
+}
+
 pub struct Decision {
     pub(crate) action_name: String,
     pub(crate) action: TypeId,
     pub(crate) type_registration: TypeRegistration,
     pub(crate) is_targeted: bool,
     pub(crate) considerations: Vec<Consideration>,
-    pub(crate) subject_filters: Vec<TypeId>,
-    pub(crate) target_filters: Vec<TypeId>,
+    pub(crate) subject_filters: Vec<Filter>,
+    pub(crate) target_filters: Vec<Filter>,
 }
 
 impl Decision {
@@ -43,17 +60,35 @@ impl Decision {
         self
     }
 
-    pub fn add_subject_filter<C: Component>(mut self) -> Self {
-        self.subject_filters.push(TypeId::of::<C>());
+    pub fn subject_filter_include<C: Component>(mut self) -> Self {
+        self.subject_filters
+            .push(Filter::Inclusive(TypeId::of::<C>()));
         self
     }
 
-    pub fn add_target_filter<C: Component>(mut self) -> Self {
+    pub fn subject_filter_exclude<C: Component>(mut self) -> Self {
+        self.subject_filters
+            .push(Filter::Exclusive(TypeId::of::<C>()));
+        self
+    }
+
+    pub fn target_filter_include<C: Component>(mut self) -> Self {
         if !self.is_targeted {
             panic!("Only targeted Decisions may have target filters")
         }
 
-        self.target_filters.push(TypeId::of::<C>());
+        self.target_filters
+            .push(Filter::Inclusive(TypeId::of::<C>()));
+        self
+    }
+
+    pub fn target_filter_exclude<C: Component>(mut self) -> Self {
+        if !self.is_targeted {
+            panic!("Only targeted Decisions may have target filters")
+        }
+
+        self.target_filters
+            .push(Filter::Exclusive(TypeId::of::<C>()));
         self
     }
 }

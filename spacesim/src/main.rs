@@ -36,7 +36,9 @@ fn main() {
                 }),
         )
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::filtered(vec![
+            FrameTimeDiagnosticsPlugin::FPS,
+        ]))
         .add_plugin(DebuggerPlugin);
     } else {
         app.add_plugins(

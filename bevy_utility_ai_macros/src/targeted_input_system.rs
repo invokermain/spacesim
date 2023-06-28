@@ -138,10 +138,16 @@ pub(crate) fn targeted_input_system(
                                     .get(entities.get(entity_id).unwrap().archetype_id)
                                     .unwrap();
                                 filter_component_sets.iter().any(|component_set| {
-                                    component_set.iter().all(|&component| {
-                                        match components.get_id(component) {
-                                            Some(component_id) => archetype.contains(component_id),
-                                            None => false,
+                                    component_set.iter().all(|component_filter| {
+                                        match components.get_id(component_filter.component_type_id()) {
+                                            Some(component_id) => match component_filter {
+                                                bevy_utility_ai::decisions::Filter::Inclusive(_) => archetype.contains(component_id),
+                                                bevy_utility_ai::decisions::Filter::Exclusive(_) => !archetype.contains(component_id),
+                                            },
+                                            None => match component_filter {
+                                                bevy_utility_ai::decisions::Filter::Inclusive(_) => false,
+                                                bevy_utility_ai::decisions::Filter::Exclusive(_) => true,
+                                            },
                                         }
                                     })
                                 })

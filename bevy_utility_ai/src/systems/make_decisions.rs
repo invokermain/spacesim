@@ -1,7 +1,8 @@
 use crate::considerations::ConsiderationType;
+use crate::decisions::Filter;
 use crate::systems::update_action::UpdateEntityActionInternal;
 use crate::{AIDefinitions, AIMeta, Decision};
-use bevy::log::{debug, debug_span};
+use bevy::log::{debug, debug_span, info};
 use bevy::prelude::{Entity, EventWriter, Query, Res};
 use bevy::utils::HashMap;
 
@@ -30,12 +31,20 @@ pub(crate) fn make_decisions_sys(
             let span = debug_span!("evaluating", action = decision.action_name);
             let _span = span.enter();
 
-            let matches_filter = decision.subject_filters.iter().all(|component_type| {
-                if let Some(component) = components.get_id(*component_type) {
-                    entity_archetype.contains(component)
+            let matches_filter = decision.subject_filters.iter().all(|component_filter| {
+                if let Some(component) =
+                    components.get_id(component_filter.component_type_id())
+                {
+                    match component_filter {
+                        Filter::Inclusive(_) => entity_archetype.contains(component),
+                        Filter::Exclusive(_) => !entity_archetype.contains(component),
+                    }
                 } else {
                     // Component hasn't even been registered with the app
-                    false
+                    match component_filter {
+                        Filter::Inclusive(_) => false,
+                        Filter::Exclusive(_) => true,
+                    }
                 }
             });
 

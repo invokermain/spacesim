@@ -12,7 +12,7 @@ pub use crate::ai_meta::AIMeta;
 use std::any::TypeId;
 use std::fmt::Debug;
 
-use crate::decisions::Decision;
+use crate::decisions::{Decision, Filter};
 use bevy::{
     prelude::{Component, Entity, Resource},
     utils::{HashMap, HashSet},
@@ -21,7 +21,7 @@ use bevy::{
 #[derive(Debug)]
 pub enum FilterDefinition {
     Any,
-    Filtered(Vec<Vec<TypeId>>),
+    Filtered(Vec<Vec<Filter>>),
 }
 
 impl FilterDefinition {

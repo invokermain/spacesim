@@ -206,7 +206,7 @@ fn simple_considerations_respects_subject_filter() {
                     Consideration::simple(utility_input_low)
                         .set_input_name("utility_input_low"),
                 )
-                .add_subject_filter::<AA>(),
+                .subject_filter_include::<AA>(),
         )
         .register(&mut app);
 
@@ -241,7 +241,7 @@ fn simple_considerations_respects_subject_filter_two() {
                     Consideration::simple(utility_input_low)
                         .set_input_name("utility_input_low"),
                 )
-                .add_subject_filter::<AA>(),
+                .subject_filter_include::<AA>(),
         )
         .register(&mut app);
 
@@ -353,7 +353,7 @@ fn calculate_targeted_inputs_respects_filters_trivial() {
                     Consideration::targeted(targeted_utility_input_1)
                         .set_input_name("targeted_utility_input_1"),
                 )
-                .add_target_filter::<AA>(),
+                .target_filter_include::<AA>(),
         )
         .register(&mut app);
 
@@ -415,8 +415,8 @@ fn calculate_targeted_inputs_respects_filters_complex() {
                     Consideration::targeted(targeted_utility_input_1)
                         .set_input_name("targeted_utility_input_1"),
                 )
-                .add_target_filter::<AA>()
-                .add_target_filter::<BB>(),
+                .target_filter_include::<AA>()
+                .target_filter_include::<BB>(),
         )
         .add_decision(
             Decision::targeted::<ActionTwo>()
@@ -424,7 +424,7 @@ fn calculate_targeted_inputs_respects_filters_complex() {
                     Consideration::targeted(targeted_utility_input_1)
                         .set_input_name("targeted_utility_input_1"),
                 )
-                .add_target_filter::<AA>(),
+                .target_filter_include::<AA>(),
         )
         .register(&mut app);
 

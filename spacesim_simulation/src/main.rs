@@ -19,13 +19,13 @@ fn log_ai_updated_action(mut e_update_action: EventReader<EntityActionChangeEven
 fn main() {
     App::new()
         .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-            // 4 fps
-            1.0 / 4.0,
+            // 144 fps
+            1.0 / 144.0,
         )))
         .add_plugins(MinimalPlugins)
         .add_plugin(LogPlugin {
-            filter: "info,wgpu_core=warn,wgpu_hal=warn".into(),
-            level: bevy::log::Level::INFO,
+            filter: "info,wgpu_core=warn,wgpu_hal=warn,bevy_utility_ai=info".into(),
+            level: bevy::log::Level::DEBUG,
         })
         .add_plugin(SimulationPlugin)
         .add_system(log_ai_updated_action)

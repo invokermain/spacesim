@@ -10,7 +10,7 @@ pub(crate) fn orbit_planetary_body(
 ) {
     for mut coords in q_planet.iter_mut() {
         let mut transform = coords.to_transform();
-        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(PI * 0.001));
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(PI * 0.00025));
         *coords = transform.into();
     }
 }
