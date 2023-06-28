@@ -10,20 +10,39 @@ pub(crate) fn make_decisions_sys(
     mut event_writer: EventWriter<UpdateEntityActionInternal>,
     mut event_writer_pub: EventWriter<EntityActionChangeEvent>,
     ai_definitions: Res<AIDefinitions>,
+    archetypes: &bevy::ecs::archetype::Archetypes,
+    entities: &bevy::ecs::entity::Entities,
+    components: &bevy::ecs::component::Components,
 ) {
     let _span = debug_span!("Making Decisions").entered();
 
     for (entity_id, mut ai_meta) in query.iter_mut() {
         let ai_definition = &ai_definitions.map[&ai_meta.ai_definition];
 
+        let entity_archetype = archetypes
+            .get(entities.get(entity_id).unwrap().archetype_id)
+            .unwrap();
+
         let _span = debug_span!("", entity = entity_id.index()).entered();
         let mut evaluated_decisions = Vec::new();
 
         for (idx, decision) in ai_definition.decisions.iter().enumerate() {
-            let span = debug_span!("", action = decision.action_name);
+            let span = debug_span!("evaluating", action = decision.action_name);
             let _span = span.enter();
 
-            debug!("evaluating");
+            let matches_filter = decision.subject_filters.iter().all(|component_type| {
+                if let Some(component) = components.get_id(*component_type) {
+                    entity_archetype.contains(component)
+                } else {
+                    // Component hasn't even been registered with the app
+                    false
+                }
+            });
+
+            if !matches_filter {
+                debug!("Skipped as entity does not match subject_filter");
+                continue;
+            }
 
             let mut decision_score = 1.0;
 

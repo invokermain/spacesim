@@ -9,6 +9,7 @@ pub struct Decision {
     pub(crate) type_registration: TypeRegistration,
     pub(crate) is_targeted: bool,
     pub(crate) considerations: Vec<Consideration>,
+    pub(crate) subject_filters: Vec<TypeId>,
     pub(crate) target_filters: Vec<TypeId>,
 }
 
@@ -20,6 +21,7 @@ impl Decision {
             type_registration: C::get_type_registration(),
             is_targeted: false,
             considerations: Vec::new(),
+            subject_filters: Vec::new(),
             target_filters: Vec::new(),
         }
     }
@@ -31,12 +33,18 @@ impl Decision {
             type_registration: C::get_type_registration(),
             is_targeted: true,
             considerations: Vec::new(),
+            subject_filters: Vec::new(),
             target_filters: Vec::new(),
         }
     }
 
     pub fn add_consideration(mut self, consideration: Consideration) -> Self {
         self.considerations.push(consideration);
+        self
+    }
+
+    pub fn add_subject_filter<C: Component>(mut self) -> Self {
+        self.subject_filters.push(TypeId::of::<C>());
         self
     }
 

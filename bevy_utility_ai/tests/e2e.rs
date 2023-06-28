@@ -179,8 +179,6 @@ fn targeted_trivial() {
         ])
         .collect::<Vec<Entity>>();
 
-    // Double update so that calculate inputs & make decisions runs
-    app.update();
     app.update();
 
     let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
@@ -188,6 +186,76 @@ fn targeted_trivial() {
     // assert that we are targeting the closest target
     assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionOne>()));
     assert_eq!(ai_meta.current_target, Some(target_entitites[1]));
+}
+
+#[test]
+fn simple_considerations_respects_subject_filter() {
+    // SETUP
+    #[input_system]
+    fn utility_input_low(some_data: &SomeData) -> f32 {
+        some_data.val
+    }
+
+    let mut app = test_app();
+    app.add_plugin(UtilityAIPlugin);
+
+    DefineAI::<AI>::new()
+        .add_decision(
+            Decision::simple::<ActionOne>()
+                .add_consideration(
+                    Consideration::simple(utility_input_low)
+                        .set_input_name("utility_input_low"),
+                )
+                .add_subject_filter::<AA>(),
+        )
+        .register(&mut app);
+
+    let entity_id = app
+        .world
+        .spawn((SomeData { val: 0.25 }, AI {}, AIMeta::new::<AI>(), AA {}))
+        .id();
+
+    app.update();
+
+    let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
+
+    assert_eq!(ai_meta.current_action_score, 0.25);
+    assert_eq!(ai_meta.current_action, Some(TypeId::of::<ActionOne>()));
+}
+
+#[test]
+fn simple_considerations_respects_subject_filter_two() {
+    // SETUP
+    #[input_system]
+    fn utility_input_low(some_data: &SomeData) -> f32 {
+        some_data.val
+    }
+
+    let mut app = test_app();
+    app.add_plugin(UtilityAIPlugin);
+
+    DefineAI::<AI>::new()
+        .add_decision(
+            Decision::simple::<ActionOne>()
+                .add_consideration(
+                    Consideration::simple(utility_input_low)
+                        .set_input_name("utility_input_low"),
+                )
+                .add_subject_filter::<AA>(),
+        )
+        .register(&mut app);
+
+    let entity_id = app
+        .world
+        .spawn((SomeData { val: 0.25 }, AI {}, AIMeta::new::<AI>()))
+        .id();
+
+    app.update();
+
+    let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
+
+    assert_eq!(ai_meta.current_action_score, -1.0);
+    assert_eq!(ai_meta.current_action, None);
 }
 
 /// This test checks that the framework does not calculate targeted inputs for entities that

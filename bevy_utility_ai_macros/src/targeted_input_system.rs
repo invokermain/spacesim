@@ -134,7 +134,6 @@ pub(crate) fn targeted_input_system(
                         match target_filter {
                             bevy_utility_ai::FilterDefinition::Any => true,
                             bevy_utility_ai::FilterDefinition::Filtered(filter_component_sets) => {
-                                bevy::prelude::debug!("checking filter");
                                 let archetype = archetypes
                                     .get(entities.get(entity_id).unwrap().archetype_id)
                                     .unwrap();
