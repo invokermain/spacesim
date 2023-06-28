@@ -2,6 +2,7 @@ use crate::response_curves::{LinearCurve, ResponseCurve};
 use crate::AIDefinitions;
 use bevy::app::{IntoSystemAppConfig, SystemAppConfig};
 use bevy::ecs::archetype::Archetypes;
+use bevy::ecs::component::Components;
 use bevy::ecs::entity::Entities;
 use bevy::ecs::query::WorldQuery;
 use bevy::prelude::{Query, Res};
@@ -53,7 +54,14 @@ impl Consideration {
     }
 
     pub fn targeted<Q1: WorldQuery + 'static, Q2: WorldQuery + 'static>(
-        input: fn(Query<Q1>, Query<Q2>, Res<AIDefinitions>, &Archetypes, &Entities),
+        input: fn(
+            Query<Q1>,
+            Query<Q2>,
+            Res<AIDefinitions>,
+            &Archetypes,
+            &Entities,
+            &Components,
+        ),
     ) -> Self {
         Consideration::construct(
             type_name_of(input).into(),

@@ -1,7 +1,7 @@
 mod common;
 
+use bevy::app::App;
 use bevy::utils::hashbrown::HashSet;
-use bevy::{app::App, utils::HashMap};
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta};
 use bevy_utility_ai_macros::input_system;
 use common::{SomeData, AI};
@@ -37,8 +37,8 @@ fn input_system_macro_updates_aimeta_inputs() {
         TypeId::of::<AI>(),
         AIDefinition {
             decisions: vec![], // this field doesn't matter for this test
-            required_inputs: HashSet::from_iter(vec![utility_input_low as usize]),
-            targeted_input_filter_sets: HashMap::new(),
+            simple_inputs: HashSet::from_iter(vec![utility_input_low as usize]),
+            targeted_inputs: Default::default(),
         },
     );
 

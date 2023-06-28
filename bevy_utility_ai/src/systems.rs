@@ -1,21 +1,9 @@
 pub mod make_decisions;
 pub mod update_action;
 
-use bevy::prelude::{Added, Commands, Component, Entity, Query, ResMut};
+use bevy::prelude::{Added, Commands, Component, Entity, Query};
 
 use crate::ai_meta::AIMeta;
-use crate::AITargetEntitySets;
-
-// TODO: add system that watches for component removal
-pub(crate) fn inclusive_targeted_filter_input<F: Component>(
-    q_added: Query<Entity, Added<F>>,
-    mut res_target_filter_sets: ResMut<AITargetEntitySets>,
-) {
-    let key = inclusive_targeted_filter_input::<F> as usize;
-    for added_entity in q_added.iter() {
-        res_target_filter_sets.insert(key, added_entity);
-    }
-}
 
 // TODO: add system that watches for component removal
 pub(crate) fn ensure_entity_has_ai_meta<T: Component>(

@@ -1,7 +1,7 @@
 use crate::define_ai::AddedSystemTracker;
 use crate::systems::make_decisions::{make_decisions_sys, EntityActionChangeEvent};
 use crate::systems::update_action::{update_actions_sys, UpdateEntityActionInternal};
-use crate::{AIDefinitions, AITargetEntitySets};
+use crate::AIDefinitions;
 use bevy::prelude::{IntoSystemConfig, IntoSystemSetConfig, Plugin, SystemSet};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -18,7 +18,6 @@ impl Plugin for UtilityAIPlugin {
         app.add_event::<UpdateEntityActionInternal>()
             .add_event::<EntityActionChangeEvent>()
             .init_resource::<AIDefinitions>()
-            .init_resource::<AITargetEntitySets>()
             .init_resource::<AddedSystemTracker>()
             .add_system(make_decisions_sys.in_set(UtililityAISet::MakeDecisions))
             .add_system(update_actions_sys.in_set(UtililityAISet::UpdateActions))

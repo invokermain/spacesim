@@ -103,6 +103,7 @@ pub(crate) fn targeted_input_system(
             res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>,
             archetypes: &bevy::ecs::archetype::Archetypes,
             entities: &bevy::ecs::entity::Entities,
+            components: &bevy::ecs::component::Components,
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
             let key = #name as usize;
@@ -133,13 +134,14 @@ pub(crate) fn targeted_input_system(
                         match target_filter {
                             bevy_utility_ai::FilterDefinition::Any => true,
                             bevy_utility_ai::FilterDefinition::Filtered(filter_component_sets) => {
+                                bevy::prelude::debug!("checking filter");
                                 let archetype = archetypes
                                     .get(entities.get(entity_id).unwrap().archetype_id)
                                     .unwrap();
                                 filter_component_sets.iter().all(|component_set| {
-                                    component_set
-                                        .iter()
-                                        .all(|&component| archetype.contains(component))
+                                    component_set.iter().all(|&component| {
+                                        archetype.contains(components.get_id(component).unwrap())
+                                    })
                                 })
                             }
                         }

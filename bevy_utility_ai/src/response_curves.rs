@@ -7,6 +7,7 @@ pub trait ResponseCurve: Send + Sync {
 }
 
 /// Implements the formula `y = slope * (x - x_shift) + y_shift`
+#[derive(Debug, Clone, Copy)]
 pub struct LinearCurve {
     pub slope: f32,
     pub x_shift: f32,
@@ -38,6 +39,7 @@ impl ResponseCurve for LinearCurve {
 }
 
 /// Implements the formula `y = slope * (x - x_shift) ^ k + y_shift`
+#[derive(Debug, Clone, Copy)]
 pub struct PolynomialCurve {
     pub slope: f32,
     pub k: f32,
@@ -72,6 +74,7 @@ impl ResponseCurve for PolynomialCurve {
 }
 
 /// Implements the formula `y = (1 / (1 + k ^ - (x - x_shift))) + y_shift`
+#[derive(Debug, Clone, Copy)]
 pub struct LogisticCurve {
     pub k: f32,
     pub x_shift: f32,

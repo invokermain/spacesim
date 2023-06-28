@@ -1,23 +1,20 @@
 use crate::considerations::Consideration;
-use bevy::ecs::component::ComponentDescriptor;
 use bevy::prelude::Component;
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use std::any::{type_name, TypeId};
 
 pub struct Decision {
-    pub(crate) name: String,
     pub(crate) action_name: String,
     pub(crate) action: TypeId,
     pub(crate) type_registration: TypeRegistration,
     pub(crate) is_targeted: bool,
     pub(crate) considerations: Vec<Consideration>,
-    pub(crate) target_filters: Vec<ComponentDescriptor>,
+    pub(crate) target_filters: Vec<TypeId>,
 }
 
 impl Decision {
-    pub fn simple<C: Component + GetTypeRegistration>(name: impl Into<String>) -> Self {
+    pub fn simple<C: Component + GetTypeRegistration>() -> Self {
         Self {
-            name: name.into(),
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
             type_registration: C::get_type_registration(),
@@ -27,9 +24,8 @@ impl Decision {
         }
     }
 
-    pub fn targeted<C: Component + GetTypeRegistration>(name: impl Into<String>) -> Self {
+    pub fn targeted<C: Component + GetTypeRegistration>() -> Self {
         Self {
-            name: name.into(),
             action_name: type_name::<C>().into(),
             action: TypeId::of::<C>(),
             type_registration: C::get_type_registration(),
@@ -49,7 +45,7 @@ impl Decision {
             panic!("Only targeted Decisions may have target filters")
         }
 
-        self.target_filters.push(ComponentDescriptor::new::<C>());
+        self.target_filters.push(TypeId::of::<C>());
         self
     }
 }
