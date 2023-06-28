@@ -138,9 +138,12 @@ pub(crate) fn targeted_input_system(
                                 let archetype = archetypes
                                     .get(entities.get(entity_id).unwrap().archetype_id)
                                     .unwrap();
-                                filter_component_sets.iter().all(|component_set| {
+                                filter_component_sets.iter().any(|component_set| {
                                     component_set.iter().all(|&component| {
-                                        archetype.contains(components.get_id(component).unwrap())
+                                        match components.get_id(component) {
+                                            Some(component_id) => archetype.contains(component_id),
+                                            None => false,
+                                        }
                                     })
                                 })
                             }

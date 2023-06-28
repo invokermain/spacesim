@@ -12,7 +12,7 @@ use bevy_utility_ai::{input_system, targeted_input_system};
 
 use crate::common::app::test_app;
 use crate::common::{
-    ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AA, AI, AI1, AI2,
+    ActionOne, ActionTwo, Position, SomeData, SomeOtherData, AA, AI, AI1, AI2, BB, CC,
 };
 
 mod common;
@@ -267,9 +267,9 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
         .contains_key(&(targeted_utility_input_2 as usize)));
 }
 
-/// This test checks that the framework correctly handles targeted_filter systems.
+/// This test checks that the framework correctly handles target filters in the trivial case.
 #[test]
-fn calculate_targeted_inputs_respects_filters() {
+fn calculate_targeted_inputs_respects_filters_trivial() {
     // SETUP
     #[targeted_input_system]
     fn targeted_utility_input_1(subject: (&Position,), target: (&Position,)) -> f32 {
@@ -327,4 +327,89 @@ fn calculate_targeted_inputs_respects_filters() {
 
     assert!(scores.contains_key(&entity_target));
     assert_eq!(scores.len(), 1);
+}
+
+/// This test checks that the framework correctly handles target filters in the complex case.
+#[test]
+fn calculate_targeted_inputs_respects_filters_complex() {
+    // SETUP
+    #[targeted_input_system]
+    fn targeted_utility_input_1(subject: (&Position,), target: (&Position,)) -> f32 {
+        subject.0.val.distance(target.0.val)
+    }
+    let mut app = test_app();
+    app.add_plugin(UtilityAIPlugin);
+
+    DefineAI::<AI1>::new()
+        .add_decision(
+            Decision::targeted::<ActionOne>()
+                .add_consideration(
+                    Consideration::targeted(targeted_utility_input_1)
+                        .set_input_name("targeted_utility_input_1"),
+                )
+                .add_target_filter::<AA>()
+                .add_target_filter::<BB>(),
+        )
+        .add_decision(
+            Decision::targeted::<ActionTwo>()
+                .add_consideration(
+                    Consideration::targeted(targeted_utility_input_1)
+                        .set_input_name("targeted_utility_input_1"),
+                )
+                .add_target_filter::<AA>(),
+        )
+        .register(&mut app);
+
+    let entity_subject = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(1.0, 1.0),
+            },
+            AI1 {},
+            AIMeta::new::<AI1>(),
+        ))
+        .id();
+    let entity_target = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(0.0, 0.0),
+            },
+            AA {},
+            BB {},
+        ))
+        .id();
+    let entity_target_2 = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(-1.0, -1.0),
+            },
+            AA {},
+        ))
+        .id();
+    let _entity_ignore = app
+        .world
+        .spawn((
+            Position {
+                val: Vec2::new(-1.0, -1.0),
+            },
+            CC {},
+        ))
+        .id();
+
+    app.update();
+
+    // Assert that the only score calculated is for entity_target
+    let ai_meta = app.world.get::<AIMeta>(entity_subject).unwrap();
+
+    let scores = ai_meta
+        .targeted_input_scores
+        .get(&(targeted_utility_input_1 as usize))
+        .unwrap();
+
+    assert_eq!(scores.len(), 2);
+    assert!(scores.contains_key(&entity_target));
+    assert!(scores.contains_key(&entity_target_2));
 }

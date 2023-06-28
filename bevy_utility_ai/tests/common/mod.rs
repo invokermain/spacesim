@@ -44,3 +44,6 @@ pub struct AA {}
 
 #[derive(Component)]
 pub struct BB {}
+
+#[derive(Component)]
+pub struct CC {}
