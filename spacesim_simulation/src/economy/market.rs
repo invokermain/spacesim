@@ -1,3 +1,4 @@
+use std::array;
 use std::collections::VecDeque;
 
 use super::{
@@ -5,6 +6,7 @@ use super::{
     components::{CommodityStorage, Wealth},
     market_wq::{MarketBuyerMutQueryItem, MarketSellerMutQuery},
 };
+use crate::economy::market_wq::{MarketSellerQuery, MarketSellerQueryItem};
 use bevy::{
     prelude::{Component, Entity, Query, Res},
     time::Time,
@@ -20,6 +22,7 @@ pub struct Market {
     // The market serves as an abstraction over the various economic components of a
     // Planet. It is responsible for tracking macroeconomic values such as demand.
     pub total_supply: CommodityArr<f32>,
+    // Market-wide  commodity price multiplier
     pub demand_price_modifier: CommodityArr<f32>,
     pub market_members: Vec<Entity>,
 
@@ -35,7 +38,7 @@ pub struct Market {
     pub purchase_price_history: CommodityArr<VecDeque<f32>>,
     pub sale_price_history: CommodityArr<VecDeque<f32>>,
 
-    // track intertick values to be aggregated at end of tick
+    // track inter-tick values to be aggregated at end of tick
     pub tick_total_demand: CommodityArr<f32>,
     pub tick_total_supply: CommodityArr<f32>,
     pub tick_total_supply_cost: CommodityArr<f32>,
@@ -94,6 +97,59 @@ impl Market {
         let delta_modifier = 2.0 / (1.0 + (0.5 * delta).exp());
 
         supply_modifier * delta_modifier
+    }
+
+    pub fn get_buyer_quotes(
+        &self,
+        buyer: Entity,
+        commodity_type: CommodityType,
+        units: f32,
+        market_seller_query: Query<MarketSellerQuery>,
+    ) -> Vec<Transaction> {
+        let commodity_idx = commodity_type as usize;
+        if self.total_supply[commodity_idx] <= 0.1 {
+            return Vec::new();
+        }
+
+        let mut market_sellers: Vec<MarketSellerQueryItem> = self
+            .market_members
+            .iter()
+            .filter_map(|&entity| market_seller_query.get(entity).ok())
+            .collect();
+
+        market_sellers.sort_by(|a, b| {
+            a.pricing.value[commodity_idx].total_cmp(&b.pricing.value[commodity_idx])
+        });
+
+        let mut transactions = Vec::new();
+        let mut unfulfilled_units = units;
+
+        for seller in market_sellers {
+            let seller_commodity_quantity = seller.storage.storage[commodity_idx];
+            if seller_commodity_quantity < 0.1 {
+                continue;
+            }
+            let purchase_quantity = f32::min(seller_commodity_quantity, units);
+
+            let unit_price = self.demand_price_modifier[commodity_idx]
+                * seller.pricing.value[commodity_idx];
+
+            transactions.push(Transaction {
+                buyer,
+                seller: seller.entity,
+                commodity_type,
+                units: purchase_quantity,
+                unit_price,
+            });
+
+            unfulfilled_units -= purchase_quantity;
+
+            if unfulfilled_units <= 0.01 {
+                break;
+            }
+        }
+
+        transactions
     }
 
     pub fn consume(
@@ -374,10 +430,26 @@ impl Market {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Transaction {
     pub buyer: Entity,
     pub seller: Entity,
+    pub commodity_type: CommodityType,
+    pub units: f32,
+    pub unit_price: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct AvailablePurchase {
+    pub seller: Entity,
+    pub commodity_type: CommodityType,
+    pub units: f32,
+    pub unit_price: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct _AvailableSale {
+    pub buyer: Entity,
     pub commodity_type: CommodityType,
     pub units: f32,
     pub unit_price: f32,

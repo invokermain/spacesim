@@ -4,6 +4,7 @@ use bevy::{
     reflect::Reflect,
 };
 use bevy_utility_ai::considerations::Consideration;
+use strum::IntoEnumIterator;
 
 use bevy_utility_ai::decisions::Decision;
 use bevy_utility_ai::define_ai::DefineAI;
@@ -12,6 +13,7 @@ use bevy_utility_ai::{input_system, targeted_input_system};
 
 use super::components::SystemCoordinates;
 use crate::common::marker_components::IsPlanet;
+use crate::economy::commodity_type::CommodityType;
 use crate::economy::components::CommodityStorage;
 use crate::economy::market::Market;
 use crate::planet::components::OnPlanet;
@@ -43,9 +45,28 @@ pub(crate) fn free_hold_space_ratio(storage: &CommodityStorage) -> f32 {
     storage.available_capacity / storage.max_capacity
 }
 
-#[input_system]
-pub(crate) fn in_space(storage: &CommodityStorage) -> f32 {
-    storage.available_capacity / storage.max_capacity
+/// Considers how discounted the items in a market are and what the best possible purchase is.
+/// This could be upgraded to consider the best possible trades for each commodity.
+#[targeted_input_system]
+pub(crate) fn market_buy_appeal(subject: (&CommodityStorage,), target: (&Market,)) -> f32 {
+    let (storage,) = subject;
+    let (market,) = target;
+    let mut unfulfilled_units = storage.available_capacity;
+    let mut market_stats: Vec<_> = CommodityType::iter()
+        .map(|commodity_type| {
+            (
+                market.total_supply[commodity_type as usize],
+                market.demand_price_modifier[commodity_type as usize],
+            )
+        })
+        .collect();
+    market_stats.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let mut score = 0.0;
+    for (available_supply, price_mod) in market_stats {
+        let purchasable_units = f32::min(available_supply, unfulfilled_units);
+        score += purchasable_units * (1.0 - price_mod);
+    }
+    2.0
 }
 
 pub(super) fn define_ship_ai(app: &mut App) {

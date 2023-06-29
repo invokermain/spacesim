@@ -18,3 +18,11 @@ pub struct MarketSellerMutQuery {
     pub wealth: &'static mut Wealth,
     pub pricing: &'static mut CommodityPricing,
 }
+
+#[derive(WorldQuery)]
+pub struct MarketSellerQuery {
+    pub entity: Entity,
+    pub storage: &'static CommodityStorage,
+    pub wealth: &'static Wealth,
+    pub pricing: &'static CommodityPricing,
+}

@@ -1,7 +1,6 @@
-use bevy::prelude::{warn, Query, With};
-
 use crate::common::marker_components::IsCompany;
 use crate::planet::components::{OnPlanet, Population};
+use bevy::prelude::{warn, Query, With};
 
 use super::{
     components::{OwnedFactories, Production},
@@ -11,16 +10,18 @@ use super::{
 
 // TODO: replace OnPlanet with TargetMarket... any company should be able to produce for
 //   an arbitrary target market.
+/// Companies check whether they have money/storage and if so make their Factories to produce goods
+/// for them.
 pub fn company_simulate(
     mut q_company: Query<(MarketBuyerMutQuery, &OwnedFactories, &OnPlanet), With<IsCompany>>,
     mut q_market: Query<&mut Market>,
     q_manufactory: Query<&Production>,
 ) {
-    for (mut buyer, owned_factories, on_planet) in q_company.iter_mut() {
+    for (mut company, owned_factories, on_planet) in q_company.iter_mut() {
         let mut market = q_market
             .get_component_mut::<Market>(on_planet.value)
             .unwrap();
-        if buyer.storage.available_capacity > 0.0 {
+        if company.storage.available_capacity > 0.0 {
             let mut producable_commodities: Vec<_> = owned_factories
                 .value
                 .iter()
@@ -40,19 +41,19 @@ pub fn company_simulate(
                 let cost = units * producable.cost_per_unit;
 
                 // we can produce something
-                if buyer.wealth.value > cost {
+                if company.wealth.value > cost {
                     let result = market.produce(
                         producable.commodity_type,
                         units,
                         producable.cost_per_unit,
-                        &mut buyer,
+                        &mut company,
                     );
                     if let Err(msg) = result {
                         warn!("produce for market failed: {:?}", msg);
                     }
                 }
 
-                if buyer.storage.available_capacity <= 0.01 {
+                if company.storage.available_capacity <= 0.01 {
                     break;
                 }
             }
@@ -78,7 +79,7 @@ pub fn population_consumption(
 }
 
 pub fn update_market_statistics(mut q_market: Query<&mut Market>) {
-    for mut market in q_market.iter_mut() {
-        market.aggregate_tick_statistics();
-    }
+    q_market
+        .iter_mut()
+        .for_each(|mut market| market.aggregate_tick_statistics());
 }
