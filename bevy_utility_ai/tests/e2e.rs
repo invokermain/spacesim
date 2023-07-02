@@ -1,9 +1,10 @@
+use bevy::ecs::query::WorldQuery;
 use std::any::TypeId;
 
-use bevy::prelude::{Entity, Vec2};
+use bevy::prelude::{Component, Entity, Time, Vec2};
 
 use bevy_utility_ai::ai_meta::AIMeta;
-use bevy_utility_ai::considerations::Consideration;
+use bevy_utility_ai::considerations::{Consideration, SimpleConsideration};
 use bevy_utility_ai::decisions::Decision;
 use bevy_utility_ai::define_ai::DefineAI;
 use bevy_utility_ai::plugin::UtilityAIPlugin;
@@ -62,8 +63,6 @@ fn simple_considerations_trivial() {
         ))
         .id();
 
-    // Double update so that calculate inputs & make decisions runs
-    app.update();
     app.update();
 
     let ai_meta = app.world.get::<AIMeta>(entity_id).unwrap();
@@ -111,8 +110,6 @@ fn calculate_inputs_calculates_only_for_required_entities() {
         .spawn((SomeData { val: 2.0 }, AI2 {}, AIMeta::new::<AI2>()))
         .id();
 
-    // Double update so that calculate inputs & make decisions runs
-    app.update();
     app.update();
 
     let ai_meta_1 = app.world.get::<AIMeta>(entity_1).unwrap();
@@ -480,4 +477,73 @@ fn calculate_targeted_inputs_respects_filters_complex() {
     assert_eq!(scores.len(), 2);
     assert!(scores.contains_key(&entity_target));
     assert!(scores.contains_key(&entity_target_2));
+}
+
+// Test that we can add a systems that have a single extra arg
+// #[test]
+// fn test_empty_plugin() {
+//     // SETUP
+//     #[targeted_input_system]
+//     fn targeted_utility_input_1(
+//         subject: (&Position,),
+//         target: (&Position,),
+//         _extra: Res<Time>,
+//     ) -> f32 {
+//         subject.0.val.distance(target.0.val)
+//     }
+//
+//     #[targeted_input_system]
+//     fn targeted_utility_input_2(target: (&Position,), _extra: Res<Time>) -> f32 {
+//         target.0.val.y
+//     }
+//
+//     #[input_system]
+//     fn utility_input_1(pos: &Position, _extra: Res<Time>) -> f32 {
+//         pos.val.x
+//     }
+//
+//     let mut app = test_app();
+//     app.add_plugin(UtilityAIPlugin);
+//
+//     DefineAI::<AI1>::new().add_decision(
+//         Decision::targeted::<ActionOne>()
+//             .add_consideration(
+//                 Consideration::targeted(targeted_utility_input_1)
+//                     .set_input_name("targeted_utility_input_1"),
+//             )
+//             .add_consideration(
+//                 Consideration::targeted(targeted_utility_input_2)
+//                     .set_input_name("targeted_utility_input_2"),
+//             )
+//             .add_consideration(
+//                 Consideration::simple(utility_input_1).set_input_name("utility_input_1"),
+//             ),
+//     );
+//
+//     app.update()
+// }
+
+#[test]
+fn scrap() {
+    use bevy::ecs::query::WorldQuery;
+    use bevy::prelude::{Component, Query};
+
+    #[derive(Component)]
+    struct SomeComponent {}
+
+    trait SimpleConsideration {}
+
+    struct Consideration {}
+
+    impl Consideration {
+        fn simple_trait(input: impl SimpleConsideration) -> Self {
+            Consideration {}
+        }
+    }
+
+    fn some_system(x: Query<&SomeComponent>) {}
+
+    impl<Q> SimpleConsideration for fn(Query<Q>) where Q: WorldQuery {}
+
+    Consideration::simple_trait(some_system);
 }

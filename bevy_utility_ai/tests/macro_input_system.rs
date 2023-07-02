@@ -1,6 +1,7 @@
 mod common;
 
 use bevy::app::App;
+use bevy::time::Time;
 use bevy::utils::hashbrown::HashSet;
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta};
 use bevy_utility_ai_macros::input_system;
@@ -9,9 +10,20 @@ use std::any::TypeId;
 
 #[test]
 fn input_system_macro_produces_valid_system() {
-    // GIVEN
     #[input_system]
     fn utility_input_low(some_data: &SomeData) -> f32 {
+        some_data.val
+    }
+
+    let mut app = App::new();
+    app.add_system(utility_input_low);
+}
+
+#[test]
+fn input_system_macro_with_resource_produces_valid_system() {
+    #[input_system]
+    fn utility_input_low(some_data: &SomeData, the_time: Res<Time>) -> f32 {
+        println!("the time is: {:?}", the_time);
         some_data.val
     }
 

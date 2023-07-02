@@ -3,5 +3,6 @@ pub mod components;
 pub mod market;
 pub mod market_wq;
 pub mod plugin;
+pub mod system_market_info;
 
 mod systems;

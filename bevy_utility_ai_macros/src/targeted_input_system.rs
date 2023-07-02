@@ -1,7 +1,8 @@
+use crate::common::{parse_input, parse_tuple_input, ParsedInput, ParsedTupleInput, SigType};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::__private::TokenStream2;
-use syn::{Error, FnArg, Ident, ItemFn, PathSegment, Type};
+use syn::{Error, FnArg, ItemFn};
 
 pub(crate) fn targeted_input_system(
     _: TokenStream,
@@ -15,53 +16,68 @@ pub(crate) fn targeted_input_system(
     let name = item_fn.sig.ident;
     let quoted_name = format!("{}", name);
 
-    if item_fn.sig.inputs.len() > 2 {
+    if item_fn.sig.inputs.len() == 0 {
         return Err(Error::new_spanned(
             item_fn.sig.inputs.into_token_stream(),
-            "Expected two inputs".to_string(),
+            "Expected at least one input".to_string(),
         ));
     }
 
-    let parsed_inputs_result: Result<Vec<ParsedInput>, Error> = item_fn
-        .sig
-        .inputs
-        .iter()
-        .map(parse_input)
-        .collect::<Vec<Result<ParsedInput, Error>>>()
-        .into_iter()
-        .collect();
+    let mut subject_input: Option<ParsedTupleInput> = None;
+    let mut target_input: Option<ParsedTupleInput> = None;
+    let mut extra_inputs: Vec<ParsedInput> = Vec::new();
 
-    let parsed_inputs = parsed_inputs_result?;
-    let mut subject_input: Option<&ParsedInput> = None;
-    let mut target_input: Option<&ParsedInput> = None;
-
-    for (idx, input) in parsed_inputs.iter().enumerate() {
-        match input.ident.to_string().as_str() {
-            "subject" => {
-                if subject_input.is_some() {
-                    return Err(Error::new_spanned(
-                        item_fn.sig.inputs[idx].clone().into_token_stream(),
-                        "There already exists an input named 'subject'".to_string(),
-                    ));
-                }
-                subject_input = Some(input);
-            }
-            "target" => {
-                if target_input.is_some() {
-                    return Err(Error::new_spanned(
-                        item_fn.sig.inputs[idx].clone().into_token_stream(),
-                        "There already exists an input named 'target'".to_string(),
-                    ));
-                }
-                target_input = Some(input);
-            }
-            _ => {
+    for input in &item_fn.sig.inputs {
+        match input {
+            FnArg::Receiver(_) => {
                 return Err(Error::new_spanned(
-                    item_fn.sig.inputs[idx].clone().into_token_stream(),
-                    "Function can only have two inputs parameters, one named \
-                    'subject' (optional), and one named 'target' (required)"
-                        .to_string(),
+                    input.into_token_stream(),
+                    "Input cannot have self".to_string(),
                 ))
+            }
+            FnArg::Typed(arg) => {
+                let input_ident = match arg.pat.as_ref() {
+                    syn::Pat::Ident(ident) => ident.ident.clone(),
+                    _ => {
+                        return Err(Error::new_spanned(
+                            arg.pat.clone().into_token_stream(),
+                            "Expected an Identity".to_string(),
+                        ));
+                    }
+                };
+                match input_ident.to_string().as_str() {
+                    "subject" => {
+                        if subject_input.is_some() {
+                            return Err(Error::new_spanned(
+                                input.clone().into_token_stream(),
+                                "There already exists an input named 'subject'".to_string(),
+                            ));
+                        }
+                        subject_input = Some(parse_tuple_input(input)?);
+                    }
+                    "target" => {
+                        if target_input.is_some() {
+                            return Err(Error::new_spanned(
+                                input.clone().into_token_stream(),
+                                "There already exists an input named 'target'".to_string(),
+                            ));
+                        }
+                        target_input = Some(parse_tuple_input(input)?);
+                    }
+                    _ => {
+                        let parsed_input = parse_input(input)?;
+                        match parsed_input.sig_type {
+                            SigType::Component => {
+                                return Err(Error::new_spanned(
+                                    input.clone().into_token_stream(),
+                                    "This extra input is not valid, expected one of Res, ResMut".to_string(),
+                                ));
+                            }
+                            SigType::Extra => {}
+                        };
+                        extra_inputs.push(parsed_input);
+                    }
+                }
             }
         }
     }
@@ -73,7 +89,7 @@ pub(crate) fn targeted_input_system(
         ));
     }
 
-    let ParsedInput {
+    let ParsedTupleInput {
         ident: target_ident,
         arg_names: target_arg_names,
         arg_types: target_arg_types,
@@ -96,6 +112,11 @@ pub(crate) fn targeted_input_system(
 
     let body = item_fn.block;
 
+    let extra_args: Vec<proc_macro2::TokenStream> = extra_inputs
+        .iter()
+        .map(|ParsedInput { ident, tokens, .. }| quote! { #ident: bevy::prelude::#tokens })
+        .collect();
+
     let output = quote! {
         fn #name(
             mut q_subject: bevy::prelude::Query<(bevy::prelude::Entity, &mut bevy_utility_ai::AIMeta #(, &#subject_arg_types)*)>,
@@ -103,7 +124,8 @@ pub(crate) fn targeted_input_system(
             res_ai_definitions: bevy::prelude::Res<bevy_utility_ai::AIDefinitions>,
             archetypes: &bevy::ecs::archetype::Archetypes,
             entities: &bevy::ecs::entity::Entities,
-            components: &bevy::ecs::component::Components,
+            components: &bevy::ecs::component::Components
+            #(, #extra_args)*
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
             let key = #name as usize;
@@ -170,80 +192,4 @@ pub(crate) fn targeted_input_system(
     };
 
     Ok(output.into())
-}
-
-struct ParsedInput {
-    ident: Ident,
-    arg_names: Vec<Ident>,
-    arg_types: Vec<PathSegment>,
-}
-
-fn parse_input(input: &FnArg) -> Result<ParsedInput, Error> {
-    let input_ident: Ident;
-    let mut arg_types = Vec::new();
-
-    match input {
-        FnArg::Receiver(_) => panic!("Input function cannot have self"),
-        FnArg::Typed(arg) => {
-            match arg.pat.as_ref() {
-                syn::Pat::Ident(ident) => {
-                    input_ident = ident.ident.clone();
-                }
-                _ => {
-                    return Err(Error::new_spanned(
-                        arg.pat.clone().into_token_stream(),
-                        "Expected an Identity".to_string(),
-                    ));
-                }
-            };
-            match arg.ty.as_ref() {
-                Type::Tuple(tuple) => {
-                    for tuple_elem in &tuple.elems {
-                        match tuple_elem {
-                            Type::Reference(reference) => {
-                                arg_types.push(match &reference.elem.as_ref() {
-                                    Type::Path(path) => path
-                                        .path
-                                        .segments
-                                        .last()
-                                        .unwrap_or_else(|| panic!("What? {:?}", path.path))
-                                        .clone(),
-                                    _ => {
-                                        return Err(Error::new_spanned(
-                                            reference.elem.clone().into_token_stream(),
-                                            "Expected a Component".to_string(),
-                                        ));
-                                    }
-                                })
-                            }
-                            _ => {
-                                return Err(Error::new_spanned(
-                                    tuple_elem.into_token_stream(),
-                                    "Expected the parameter type to be a reference"
-                                        .to_string(),
-                                ));
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    return Err(Error::new_spanned(
-                        arg.ty.clone().into_token_stream(),
-                        "Expected the parameter type to be a tuple".to_string(),
-                    ));
-                }
-            };
-        }
-    };
-    let arg_names: Vec<Ident> = arg_types
-        .iter()
-        .enumerate()
-        .map(|(idx, _)| format_ident!("p{idx}"))
-        .collect();
-
-    Ok(ParsedInput {
-        ident: input_ident,
-        arg_names,
-        arg_types,
-    })
 }

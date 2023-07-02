@@ -18,7 +18,6 @@ pub fn create_world(mut commands: Commands) {
             .spawn(ManufactoryBundle {
                 production: Production {
                     commodity_type: CommodityType::Food,
-                    cost_per_unit: 0.5,
                     output_per_tick: 1.0,
                 },
                 on_planet: OnPlanet {
@@ -31,7 +30,6 @@ pub fn create_world(mut commands: Commands) {
             .spawn(ManufactoryBundle {
                 production: Production {
                     commodity_type: CommodityType::Water,
-                    cost_per_unit: 0.3,
                     output_per_tick: 0.75,
                 },
                 on_planet: OnPlanet {
@@ -70,7 +68,6 @@ pub fn create_world(mut commands: Commands) {
             .spawn(ManufactoryBundle {
                 production: Production {
                     commodity_type: CommodityType::Clothes,
-                    cost_per_unit: 1.5,
                     output_per_tick: 1.0,
                 },
                 on_planet: OnPlanet {

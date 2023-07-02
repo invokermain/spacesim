@@ -22,7 +22,7 @@ pub struct Market {
     // The market serves as an abstraction over the various economic components of a
     // Planet. It is responsible for tracking macroeconomic values such as demand.
     pub total_supply: CommodityArr<f32>,
-    // Market-wide  commodity price multiplier
+    // Market-wide commodity price multiplier
     pub demand_price_modifier: CommodityArr<f32>,
     pub market_members: Vec<Entity>,
 
@@ -448,7 +448,7 @@ pub struct AvailablePurchase {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct _AvailableSale {
+pub struct AvailableSale {
     pub buyer: Entity,
     pub commodity_type: CommodityType,
     pub units: f32,

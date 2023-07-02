@@ -1,3 +1,4 @@
+pub(crate) mod common;
 mod input_system;
 mod targeted_input_system;
 
@@ -18,11 +19,3 @@ pub fn targeted_input_system(args: TokenStream, input: TokenStream) -> TokenStre
         Err(err) => err.into_compile_error().into(),
     }
 }
-
-// #[proc_macro_attribute]
-// pub fn target_selector(args: TokenStream, input: TokenStream) -> TokenStream {
-//     match target_selector::target_selector(args, input) {
-//         Ok(tokens) => tokens,
-//         Err(err) => err.into_compile_error().into(),
-//     }
-// }

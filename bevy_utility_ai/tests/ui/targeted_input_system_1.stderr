@@ -1,5 +1,0 @@
-error: Function can only have two inputs parameters, one named 'subject' (optional), and one named 'target' (required)
- --> tests/ui/targeted_input_system_1.rs:4:26
-  |
-4 | fn simple_targeted_input(some_data: (&SomeData,)) -> f32 {
-  |                          ^^^^^^^^^^^^^^^^^^^^^^^

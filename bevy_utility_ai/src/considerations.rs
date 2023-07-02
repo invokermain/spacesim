@@ -18,6 +18,29 @@ pub enum ConsiderationType {
     Targeted,
 }
 
+pub trait SimpleConsideration {
+    fn input_name(&self) -> String;
+    fn input_key(&self) -> usize;
+    fn as_app_config(&self) -> SystemAppConfig;
+}
+
+impl<Q> SimpleConsideration for fn(Query<Q>, Res<AIDefinitions>)
+where
+    Q: WorldQuery + 'static,
+{
+    fn input_name(&self) -> String {
+        type_name_of(*self).into()
+    }
+
+    fn input_key(&self) -> usize {
+        *self as usize
+    }
+
+    fn as_app_config(&self) -> SystemAppConfig {
+        self.clone().into_app_config()
+    }
+}
+
 pub struct Consideration {
     pub input_name: String,
     pub input: usize,

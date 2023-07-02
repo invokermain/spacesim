@@ -2,7 +2,7 @@ use crate::considerations::ConsiderationType;
 use crate::decisions::Filter;
 use crate::systems::update_action::UpdateEntityActionInternal;
 use crate::{AIDefinitions, AIMeta, Decision};
-use bevy::log::{debug, debug_span, info};
+use bevy::log::{debug, debug_span};
 use bevy::prelude::{Entity, EventWriter, Query, Res};
 use bevy::utils::HashMap;
 

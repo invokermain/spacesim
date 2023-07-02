@@ -35,3 +35,15 @@ impl From<usize> for CommodityType {
         }
     }
 }
+
+// TODO: temporary measure of hardcoding prices until the market supply/demand pricing system is
+//   reworked.
+impl CommodityType {
+    pub fn price(&self) -> f32 {
+        match self {
+            CommodityType::Food => 0.5,
+            CommodityType::Water => 0.3,
+            CommodityType::Clothes => 1.5,
+        }
+    }
+}

@@ -9,7 +9,6 @@ use super::commodity_type::{CommodityArr, CommodityType, COMMODITY_COUNT};
 #[derive(Component, Clone, Copy)]
 pub struct Production {
     pub commodity_type: CommodityType,
-    pub cost_per_unit: f32,
     pub output_per_tick: f32,
 }
 

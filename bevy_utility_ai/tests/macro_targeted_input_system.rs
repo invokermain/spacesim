@@ -1,7 +1,7 @@
 mod common;
 
 use crate::common::{SomeOtherData, AA};
-use bevy::{app::App, utils::HashMap};
+use bevy::{app::App, prelude::Time, utils::HashMap};
 use bevy_utility_ai::decisions::Filter;
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta};
 use bevy_utility_ai::{FilterDefinition, TargetedInputRequirements};
@@ -27,6 +27,17 @@ fn simple_targeted_input_system_produces_valid_system() {
 }
 
 #[test]
+fn simple_targeted_input_system_with_resource_produces_valid_system() {
+    #[targeted_input_system]
+    fn simple_targeted_input_with_resource(target: (&SomeData,), r_time: Res<Time>) -> f32 {
+        target.0.val
+    }
+
+    let mut app = App::new();
+    app.add_system(simple_targeted_input_with_resource);
+}
+
+#[test]
 fn targeted_input_system_produces_valid_system() {
     #[targeted_input_system]
     fn targeted_input(subject: (&SomeOtherData,), target: (&SomeData,)) -> f32 {
@@ -35,6 +46,21 @@ fn targeted_input_system_produces_valid_system() {
 
     let mut app = App::new();
     app.add_system(targeted_input);
+}
+
+#[test]
+fn targeted_input_system_with_resource_produces_valid_system() {
+    #[targeted_input_system]
+    fn targeted_input_with_resource(
+        subject: (&SomeOtherData,),
+        target: (&SomeData,),
+        r_time: Res<Time>,
+    ) -> f32 {
+        subject.0.val - target.0.val
+    }
+
+    let mut app = App::new();
+    app.add_system(targeted_input_with_resource);
 }
 
 #[test]
