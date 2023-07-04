@@ -1,5 +1,6 @@
 use crate::common::{parse_input, parse_tuple_input, ParsedInput, ParsedTupleInput, SigType};
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
 use syn::__private::TokenStream2;
 use syn::{Error, FnArg, ItemFn};
@@ -66,14 +67,12 @@ pub(crate) fn targeted_input_system(
                     }
                     _ => {
                         let parsed_input = parse_input(input)?;
-                        match parsed_input.sig_type {
-                            SigType::Component => {
-                                return Err(Error::new_spanned(
-                                    input.clone().into_token_stream(),
-                                    "This extra input is not valid, expected one of Res, ResMut".to_string(),
-                                ));
-                            }
-                            SigType::Extra => {}
+                        if parsed_input.sig_type == SigType::Component {
+                            return Err(Error::new_spanned(
+                                input.clone().into_token_stream(),
+                                "This extra input is not valid, expected one of Res, ResMut"
+                                    .to_string(),
+                            ));
                         };
                         extra_inputs.push(parsed_input);
                     }
@@ -89,26 +88,47 @@ pub(crate) fn targeted_input_system(
         ));
     }
 
-    let ParsedTupleInput {
-        ident: target_ident,
-        arg_names: target_arg_names,
-        arg_types: target_arg_types,
-    } = target_input.unwrap();
-
     let mut subject_ident = None;
     let mut subject_arg_names = Vec::new();
     let mut subject_arg_types = Vec::new();
 
     if let Some(subject_input) = subject_input {
         subject_ident = Some(subject_input.ident.clone());
-        subject_arg_names = subject_input.arg_names.clone();
-        subject_arg_types = subject_input.arg_types.clone();
+        for (arg_type, arg_name) in subject_input.arg_types.iter().zip(subject_input.arg_names)
+        {
+            if arg_type.ident.to_string().as_str() == "Entity" {
+                subject_arg_names.push(Ident::new("subject_entity_id", Span::call_site()));
+            } else {
+                subject_arg_names.push(arg_name.clone());
+                subject_arg_types.push(arg_type.clone());
+            }
+        }
     }
 
     let subject_data_line = match subject_ident {
         None => TokenStream2::new(),
         Some(ident) => quote! { let #ident = (#(#subject_arg_names, )*); },
     };
+
+    subject_arg_names.retain(|n| n.to_string().as_str() != "subject_entity_id");
+
+    let mut target_arg_names = Vec::new();
+    let mut target_arg_types = Vec::new();
+
+    if let Some(target_input) = target_input {
+        for (arg_type, arg_name) in target_input.arg_types.iter().zip(target_input.arg_names) {
+            if arg_type.ident.to_string().as_str() == "Entity" {
+                target_arg_names.push(Ident::new("target_entity_id", Span::call_site()));
+            } else {
+                target_arg_names.push(arg_name.clone());
+                target_arg_types.push(arg_type.clone());
+            }
+        }
+    }
+
+    let target_data_line = quote! { let target = (#(#target_arg_names, )*); };
+
+    target_arg_names.retain(|n| n.to_string().as_str() != "target_entity_id");
 
     let body = item_fn.block;
 
@@ -128,7 +148,7 @@ pub(crate) fn targeted_input_system(
             #(, #extra_args)*
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Targeted Input", input = #quoted_name).entered();
-            let key = #name as usize;
+            let key = bevy_utility_ai::utils::type_id_of(&#name);
 
             for (subject_entity_id, mut ai_meta #(, #subject_arg_names)*) in q_subject.iter_mut() {
                 let _span = bevy::prelude::debug_span!("", entity = subject_entity_id.index()).entered();
@@ -149,15 +169,15 @@ pub(crate) fn targeted_input_system(
 
                 #subject_data_line
 
-                for (entity_id #(, #target_arg_names)*) in q_target.iter() {
-                    let _span = bevy::prelude::debug_span!("", target_entity = entity_id.index()).entered();
+                for (target_entity_id #(, #target_arg_names)*) in q_target.iter() {
+                    let _span = bevy::prelude::debug_span!("", target_entity = target_entity_id.index()).entered();
 
                     let matches_filters = {
                         match target_filter {
                             bevy_utility_ai::FilterDefinition::Any => true,
                             bevy_utility_ai::FilterDefinition::Filtered(filter_component_sets) => {
                                 let archetype = archetypes
-                                    .get(entities.get(entity_id).unwrap().archetype_id)
+                                    .get(entities.get(target_entity_id).unwrap().archetype_id)
                                     .unwrap();
                                 filter_component_sets.iter().any(|component_set| {
                                     component_set.iter().all(|component_filter| {
@@ -177,13 +197,13 @@ pub(crate) fn targeted_input_system(
                         }
                     };
 
-                    if !matches_filters || entity_id == subject_entity_id {
+                    if !matches_filters || target_entity_id == subject_entity_id {
                         continue;
                     }
 
-                    let #target_ident = (#(#target_arg_names, )*);
-                    let score =  #body;
-                    let entry = score_map.entry(entity_id).or_insert(f32::NEG_INFINITY);
+                    #target_data_line
+                    let score = #body;
+                    let entry = score_map.entry(target_entity_id).or_insert(f32::NEG_INFINITY);
                     *entry = score;
                     bevy::prelude::debug!("score {:.2}", score);
                 }

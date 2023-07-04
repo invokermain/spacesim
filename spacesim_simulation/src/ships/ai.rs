@@ -1,11 +1,9 @@
-use bevy::log::info;
 use bevy::prelude::App;
 use bevy::{
     prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
 };
 use bevy_utility_ai::considerations::Consideration;
-use strum::IntoEnumIterator;
 
 use bevy_utility_ai::decisions::Decision;
 use bevy_utility_ai::define_ai::DefineAI;
@@ -14,9 +12,9 @@ use bevy_utility_ai::{input_system, targeted_input_system};
 
 use super::components::SystemCoordinates;
 use crate::common::marker_components::IsPlanet;
-use crate::economy::commodity_type::CommodityType;
 use crate::economy::components::CommodityStorage;
 use crate::economy::market::Market;
+use crate::economy::system_market_info::SystemMarketInfo;
 use crate::planet::components::OnPlanet;
 
 // Marker component for our AI system
@@ -33,7 +31,7 @@ pub struct ActionPurchaseGoodsFromMarket {}
 
 /// Distance between two coordinates in km. Range: 0 -> f32::MAX
 #[targeted_input_system]
-pub(crate) fn system_distance(
+pub(crate) fn distance_to_nearby_planet(
     subject: (&SystemCoordinates,),
     target: (&SystemCoordinates,),
 ) -> f32 {
@@ -42,19 +40,20 @@ pub(crate) fn system_distance(
 
 /// Ratio of available storage capacity. 1 implies hold is empty. Range: 0 -> 1
 #[input_system]
-pub(crate) fn free_hold_space_ratio(storage: &CommodityStorage) -> f32 {
+pub(crate) fn available_hold_capacity(storage: &CommodityStorage) -> f32 {
     storage.available_capacity / storage.max_capacity
 }
 
-/// Considers how discounted the items in a market are and what the best possible purchase is.
-/// This could be upgraded to consider the best possible trades for each commodity.
+/// Total trade potential of a Market. Range: 0 ->
 #[targeted_input_system]
-pub(crate) fn market_buy_appeal(
-    subject: (&CommodityStorage,),
-    target: (&Market,),
-    res_system_market_info: ResMut<SystemMarketInfo>,
+pub(crate) fn market_trade_potential(
+    target: (Entity,),
+    res_system_market_info: Res<SystemMarketInfo>,
 ) -> f32 {
-    1.0
+    *res_system_market_info
+        .total_trade_potential
+        .get(&target.0)
+        .unwrap_or(&0.0)
 }
 
 pub(super) fn define_ship_ai(app: &mut App) {
@@ -65,25 +64,26 @@ pub(super) fn define_ship_ai(app: &mut App) {
                 .target_filter_include::<Market>()
                 .subject_filter_exclude::<OnPlanet>()
                 .add_consideration(
-                    Consideration::targeted(system_distance)
-                        .with_response_curve(
-                            LinearCurve::new(-1.0 / 150_000_000.0).shifted(0.0, 1.0),
-                        )
-                        .set_input_name("Distance to nearby planets"),
+                    Consideration::targeted(distance_to_nearby_planet).with_response_curve(
+                        LinearCurve::new(-1.0 / 150_000_000.0).shifted(0.0, 1.0),
+                    ),
                 )
                 .add_consideration(
-                    Consideration::simple(free_hold_space_ratio)
-                        .with_response_curve(PolynomialCurve::new(1.0, 3.0))
-                        .set_input_name("Available hold capacity"),
+                    Consideration::simple(available_hold_capacity)
+                        .with_response_curve(PolynomialCurve::new(1.0, 3.0)),
+                )
+                .add_consideration(
+                    Consideration::targeted(market_trade_potential).with_response_curve(
+                        PolynomialCurve::new(1.0, 0.1).shifted(-1.0, -1.0),
+                    ),
                 ),
         )
         .add_decision(
             Decision::simple::<ActionPurchaseGoodsFromMarket>()
                 .subject_filter_include::<OnPlanet>()
                 .add_consideration(
-                    Consideration::simple(free_hold_space_ratio)
-                        .with_response_curve(PolynomialCurve::new(1.0, 3.0))
-                        .set_input_name("Available hold capacity"),
+                    Consideration::simple(available_hold_capacity)
+                        .with_response_curve(PolynomialCurve::new(1.0, 3.0)),
                 ),
         )
         .register(app);

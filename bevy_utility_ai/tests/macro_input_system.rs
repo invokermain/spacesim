@@ -1,8 +1,9 @@
 mod common;
 
-use bevy::app::App;
+use bevy::app::{App, Update};
 use bevy::time::Time;
 use bevy::utils::hashbrown::HashSet;
+use bevy_utility_ai::utils::type_id_of;
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta};
 use bevy_utility_ai_macros::input_system;
 use common::{SomeData, AI};
@@ -16,7 +17,7 @@ fn input_system_macro_produces_valid_system() {
     }
 
     let mut app = App::new();
-    app.add_system(utility_input_low);
+    app.add_systems(Update, utility_input_low);
 }
 
 #[test]
@@ -28,7 +29,7 @@ fn input_system_macro_with_resource_produces_valid_system() {
     }
 
     let mut app = App::new();
-    app.add_system(utility_input_low);
+    app.add_systems(Update, utility_input_low);
 }
 
 #[test]
@@ -40,7 +41,7 @@ fn input_system_macro_updates_aimeta_inputs() {
 
     let mut app = App::new();
 
-    app.add_system(utility_input_low);
+    app.add_systems(Update, utility_input_low);
 
     app.init_resource::<AIDefinitions>();
 
@@ -49,7 +50,7 @@ fn input_system_macro_updates_aimeta_inputs() {
         TypeId::of::<AI>(),
         AIDefinition {
             decisions: vec![], // this field doesn't matter for this test
-            simple_inputs: HashSet::from_iter(vec![utility_input_low as usize]),
+            simple_inputs: HashSet::from_iter(vec![type_id_of(&utility_input_low)]),
             targeted_inputs: Default::default(),
         },
     );
@@ -65,6 +66,6 @@ fn input_system_macro_updates_aimeta_inputs() {
 
     assert!(ai_meta
         .input_scores
-        .contains_key(&(utility_input_low as usize)));
-    assert_eq!(ai_meta.input_scores[&(utility_input_low as usize)], 0.25);
+        .contains_key(&type_id_of(&utility_input_low)));
+    assert_eq!(ai_meta.input_scores[&type_id_of(&utility_input_low)], 0.25);
 }

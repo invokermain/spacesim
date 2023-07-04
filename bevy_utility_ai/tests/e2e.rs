@@ -1,14 +1,14 @@
-use bevy::ecs::query::WorldQuery;
 use std::any::TypeId;
 
-use bevy::prelude::{Component, Entity, Time, Vec2};
+use bevy::prelude::{Component, Entity, Res, Time, Vec2};
 
 use bevy_utility_ai::ai_meta::AIMeta;
-use bevy_utility_ai::considerations::{Consideration, SimpleConsideration};
+use bevy_utility_ai::considerations::Consideration;
 use bevy_utility_ai::decisions::Decision;
 use bevy_utility_ai::define_ai::DefineAI;
 use bevy_utility_ai::plugin::UtilityAIPlugin;
 use bevy_utility_ai::response_curves::LinearCurve;
+use bevy_utility_ai::utils::type_id_of;
 use bevy_utility_ai::{input_system, targeted_input_system};
 
 use crate::common::app::test_app;
@@ -22,7 +22,7 @@ mod common;
 #[test]
 fn test_empty_plugin() {
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
     app.update();
 }
 
@@ -42,7 +42,7 @@ fn simple_considerations_trivial() {
     }
 
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI>::new()
         .add_decision(Decision::simple::<ActionOne>().add_consideration(
@@ -87,7 +87,7 @@ fn calculate_inputs_calculates_only_for_required_entities() {
     }
 
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI1>::new()
         .add_decision(Decision::simple::<ActionOne>().add_consideration(
@@ -117,17 +117,17 @@ fn calculate_inputs_calculates_only_for_required_entities() {
 
     assert!(ai_meta_1
         .input_scores
-        .contains_key(&(utility_input_1 as usize)));
+        .contains_key(&type_id_of(&utility_input_1)));
     assert!(!ai_meta_1
         .input_scores
-        .contains_key(&(utility_input_2 as usize)));
+        .contains_key(&type_id_of(&utility_input_2)));
 
     assert!(!ai_meta_2
         .input_scores
-        .contains_key(&(utility_input_1 as usize)));
+        .contains_key(&type_id_of(&utility_input_1)));
     assert!(ai_meta_2
         .input_scores
-        .contains_key(&(utility_input_2 as usize)));
+        .contains_key(&type_id_of(&utility_input_2)));
 }
 
 /// This test checks whether the framework correctly chooses the highest scoring decision in the
@@ -141,7 +141,7 @@ fn targeted_trivial() {
     }
 
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI>::new()
         .add_decision(
@@ -194,7 +194,7 @@ fn simple_considerations_respects_subject_filter() {
     }
 
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI>::new()
         .add_decision(
@@ -229,7 +229,7 @@ fn simple_considerations_respects_subject_filter_two() {
     }
 
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI>::new()
         .add_decision(
@@ -271,7 +271,7 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
     }
 
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI1>::new()
         .add_decision(
@@ -319,17 +319,17 @@ fn calculate_targeted_inputs_calculates_only_for_required_entities() {
 
     assert!(ai_meta_1
         .targeted_input_scores
-        .contains_key(&(targeted_utility_input_1 as usize)));
+        .contains_key(&type_id_of(&targeted_utility_input_1)));
     assert!(!ai_meta_1
         .targeted_input_scores
-        .contains_key(&(targeted_utility_input_2 as usize)));
+        .contains_key(&type_id_of(&targeted_utility_input_2)));
 
     assert!(!ai_meta_2
         .targeted_input_scores
-        .contains_key(&(targeted_utility_input_1 as usize)));
+        .contains_key(&type_id_of(&targeted_utility_input_1)));
     assert!(ai_meta_2
         .targeted_input_scores
-        .contains_key(&(targeted_utility_input_2 as usize)));
+        .contains_key(&type_id_of(&targeted_utility_input_2)));
 }
 
 /// This test checks that the framework correctly handles target filters in the trivial case.
@@ -341,7 +341,7 @@ fn calculate_targeted_inputs_respects_filters_trivial() {
         subject.0.val.distance(target.0.val)
     }
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI1>::new()
         .add_decision(
@@ -387,7 +387,7 @@ fn calculate_targeted_inputs_respects_filters_trivial() {
 
     let scores = ai_meta
         .targeted_input_scores
-        .get(&(targeted_utility_input_1 as usize))
+        .get(&type_id_of(&targeted_utility_input_1))
         .unwrap();
 
     assert!(scores.contains_key(&entity_target));
@@ -403,7 +403,7 @@ fn calculate_targeted_inputs_respects_filters_complex() {
         subject.0.val.distance(target.0.val)
     }
     let mut app = test_app();
-    app.add_plugin(UtilityAIPlugin);
+    app.add_plugins(UtilityAIPlugin::default());
 
     DefineAI::<AI1>::new()
         .add_decision(
@@ -471,7 +471,7 @@ fn calculate_targeted_inputs_respects_filters_complex() {
 
     let scores = ai_meta
         .targeted_input_scores
-        .get(&(targeted_utility_input_1 as usize))
+        .get(&type_id_of(&targeted_utility_input_1))
         .unwrap();
 
     assert_eq!(scores.len(), 2);
@@ -479,71 +479,77 @@ fn calculate_targeted_inputs_respects_filters_complex() {
     assert!(scores.contains_key(&entity_target_2));
 }
 
-// Test that we can add a systems that have a single extra arg
-// #[test]
-// fn test_empty_plugin() {
-//     // SETUP
-//     #[targeted_input_system]
-//     fn targeted_utility_input_1(
-//         subject: (&Position,),
-//         target: (&Position,),
-//         _extra: Res<Time>,
-//     ) -> f32 {
-//         subject.0.val.distance(target.0.val)
-//     }
-//
-//     #[targeted_input_system]
-//     fn targeted_utility_input_2(target: (&Position,), _extra: Res<Time>) -> f32 {
-//         target.0.val.y
-//     }
-//
-//     #[input_system]
-//     fn utility_input_1(pos: &Position, _extra: Res<Time>) -> f32 {
-//         pos.val.x
-//     }
-//
-//     let mut app = test_app();
-//     app.add_plugin(UtilityAIPlugin);
-//
-//     DefineAI::<AI1>::new().add_decision(
-//         Decision::targeted::<ActionOne>()
-//             .add_consideration(
-//                 Consideration::targeted(targeted_utility_input_1)
-//                     .set_input_name("targeted_utility_input_1"),
-//             )
-//             .add_consideration(
-//                 Consideration::targeted(targeted_utility_input_2)
-//                     .set_input_name("targeted_utility_input_2"),
-//             )
-//             .add_consideration(
-//                 Consideration::simple(utility_input_1).set_input_name("utility_input_1"),
-//             ),
-//     );
-//
-//     app.update()
-// }
-
+/// Test that we can add a systems that have a single extra arg
 #[test]
-fn scrap() {
-    use bevy::ecs::query::WorldQuery;
-    use bevy::prelude::{Component, Query};
-
-    #[derive(Component)]
-    struct SomeComponent {}
-
-    trait SimpleConsideration {}
-
-    struct Consideration {}
-
-    impl Consideration {
-        fn simple_trait(input: impl SimpleConsideration) -> Self {
-            Consideration {}
-        }
+fn test_systems_with_extra_args() {
+    // SETUP
+    #[targeted_input_system]
+    fn targeted_utility_input_1(
+        subject: (&Position,),
+        target: (&Position,),
+        _extra: Res<Time>,
+    ) -> f32 {
+        subject.0.val.distance(target.0.val)
     }
 
-    fn some_system(x: Query<&SomeComponent>) {}
+    #[targeted_input_system]
+    fn targeted_utility_input_2(target: (&Position,), _extra: Res<Time>) -> f32 {
+        target.0.val.y
+    }
 
-    impl<Q> SimpleConsideration for fn(Query<Q>) where Q: WorldQuery {}
+    #[input_system]
+    fn utility_input_1(pos: &Position, _extra: Res<Time>) -> f32 {
+        pos.val.x
+    }
 
-    Consideration::simple_trait(some_system);
+    let mut app = test_app();
+    app.add_plugins(UtilityAIPlugin::default());
+
+    DefineAI::<AI1>::new().add_decision(
+        Decision::targeted::<ActionOne>()
+            .add_consideration(
+                Consideration::targeted(targeted_utility_input_1)
+                    .set_input_name("targeted_utility_input_1"),
+            )
+            .add_consideration(
+                Consideration::targeted(targeted_utility_input_2)
+                    .set_input_name("targeted_utility_input_2"),
+            )
+            .add_consideration(
+                Consideration::simple(utility_input_1).set_input_name("utility_input_1"),
+            ),
+    );
+
+    app.update()
+}
+
+/// Test that we can query the Entity on an input
+#[test]
+fn test_systems_with_entity_args() {
+    // SETUP
+    #[targeted_input_system]
+    fn targeted_utility_input_1(subject: (Entity,), target: (Entity,)) -> f32 {
+        (subject.0.generation() - target.0.generation()) as f32
+    }
+
+    #[input_system]
+    fn utility_input_1(entity: Entity, pos: &Position) -> f32 {
+        pos.val.x - entity.generation() as f32
+    }
+
+    let mut app = test_app();
+    app.add_plugins(UtilityAIPlugin::default());
+
+    DefineAI::<AI1>::new().add_decision(
+        Decision::targeted::<ActionOne>()
+            .add_consideration(
+                Consideration::targeted(targeted_utility_input_1)
+                    .set_input_name("targeted_utility_input_1"),
+            )
+            .add_consideration(
+                Consideration::simple(utility_input_1).set_input_name("utility_input_1"),
+            ),
+    );
+
+    app.update()
 }

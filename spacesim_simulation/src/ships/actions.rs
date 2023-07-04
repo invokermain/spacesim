@@ -1,4 +1,4 @@
-use bevy::app::{CoreSchedule, IntoSystemAppConfig};
+use bevy::app::FixedUpdate;
 use bevy::log::info;
 use bevy::prelude::{App, Commands, Entity, Query, Res, Time, Vec3, With, Without};
 use bevy_utility_ai::ActionTarget;
@@ -8,7 +8,7 @@ use crate::{common::marker_components::IsPlanet, planet::components::OnPlanet};
 
 use super::{ai::ActionMoveToPlanet, components::SystemCoordinates};
 
-const TRAVEL_TO_PLANET_STEPSIZE: f32 = 100_000_000.0;
+const TRAVEL_TO_PLANET_STEPSIZE: f32 = 10_000_000.0;
 
 pub(crate) fn travel_to_planet(
     time: Res<Time>,
@@ -46,8 +46,5 @@ pub(crate) fn purchase_goods_from_market(
 }
 
 pub(crate) fn register_actions(app: &mut App) {
-    app.add_systems((
-        travel_to_planet.in_schedule(CoreSchedule::FixedUpdate),
-        purchase_goods_from_market.in_schedule(CoreSchedule::FixedUpdate),
-    ));
+    app.add_systems(FixedUpdate, (travel_to_planet, purchase_goods_from_market));
 }

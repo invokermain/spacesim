@@ -1,6 +1,6 @@
 use bevy::prelude::{
-    debug, debug_span, AppTypeRegistry, Entity, Events, ReflectComponent, ReflectDefault,
-    World,
+    debug, debug_span, AppTypeRegistry, Entity, Event, Events, ReflectComponent,
+    ReflectDefault, World,
 };
 use std::any::TypeId;
 
@@ -59,7 +59,7 @@ pub(crate) fn update_actions_sys(world: &mut World) {
                         )
                     }
                 } else {
-                    debug!("Unable to update Entity as it does not exist");
+                    debug!("Action is the same as current action");
                 }
 
                 // Update the target on the entity
@@ -74,6 +74,8 @@ pub(crate) fn update_actions_sys(world: &mut World) {
                         debug!("Added Target {:?}", target);
                     }
                 }
+            } else {
+                debug!("Unable to update Entity as it does not exist");
             }
         }
     }
@@ -82,6 +84,7 @@ pub(crate) fn update_actions_sys(world: &mut World) {
     world.insert_resource(events);
 }
 
+#[derive(Event)]
 pub(crate) struct UpdateEntityActionInternal {
     pub(crate) entity_id: Entity,
     pub(crate) old_action: Option<TypeId>,

@@ -1,8 +1,10 @@
 mod common;
 
 use crate::common::{SomeOtherData, AA};
+use bevy::app::Update;
 use bevy::{app::App, prelude::Time, utils::HashMap};
 use bevy_utility_ai::decisions::Filter;
+use bevy_utility_ai::utils::type_id_of;
 use bevy_utility_ai::{AIDefinition, AIDefinitions, AIMeta};
 use bevy_utility_ai::{FilterDefinition, TargetedInputRequirements};
 use bevy_utility_ai_macros::targeted_input_system;
@@ -23,18 +25,18 @@ fn simple_targeted_input_system_produces_valid_system() {
     }
 
     let mut app = App::new();
-    app.add_system(simple_targeted_input);
+    app.add_systems(Update, simple_targeted_input);
 }
 
 #[test]
 fn simple_targeted_input_system_with_resource_produces_valid_system() {
     #[targeted_input_system]
-    fn simple_targeted_input_with_resource(target: (&SomeData,), r_time: Res<Time>) -> f32 {
+    fn simple_targeted_input_with_resource(target: (&SomeData,), _r_time: Res<Time>) -> f32 {
         target.0.val
     }
 
     let mut app = App::new();
-    app.add_system(simple_targeted_input_with_resource);
+    app.add_systems(Update, simple_targeted_input_with_resource);
 }
 
 #[test]
@@ -45,7 +47,7 @@ fn targeted_input_system_produces_valid_system() {
     }
 
     let mut app = App::new();
-    app.add_system(targeted_input);
+    app.add_systems(Update, targeted_input);
 }
 
 #[test]
@@ -54,13 +56,13 @@ fn targeted_input_system_with_resource_produces_valid_system() {
     fn targeted_input_with_resource(
         subject: (&SomeOtherData,),
         target: (&SomeData,),
-        r_time: Res<Time>,
+        _r_time: Res<Time>,
     ) -> f32 {
         subject.0.val - target.0.val
     }
 
     let mut app = App::new();
-    app.add_system(targeted_input_with_resource);
+    app.add_systems(Update, targeted_input_with_resource);
 }
 
 #[test]
@@ -72,7 +74,7 @@ fn trivial_targeted_input_system_updates_aimeta_inputs() {
 
     let mut app = test_app();
 
-    app.add_system(trivial_targeted_input);
+    app.add_systems(Update, trivial_targeted_input);
 
     let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
     ai_definitions.map.insert(
@@ -81,7 +83,7 @@ fn trivial_targeted_input_system_updates_aimeta_inputs() {
             decisions: vec![], // this field doesn't matter for this test
             simple_inputs: Default::default(),
             targeted_inputs: HashMap::from_iter(vec![(
-                trivial_targeted_input as usize,
+                type_id_of(&trivial_targeted_input),
                 TargetedInputRequirements {
                     target_filter: FilterDefinition::Any,
                 },
@@ -99,9 +101,9 @@ fn trivial_targeted_input_system_updates_aimeta_inputs() {
     assert_eq!(ai_meta.targeted_input_scores.len(), 1);
     assert!(ai_meta
         .targeted_input_scores
-        .contains_key(&(trivial_targeted_input as usize)));
+        .contains_key(&type_id_of(&trivial_targeted_input)));
     assert_eq!(
-        ai_meta.targeted_input_scores[&(trivial_targeted_input as usize)][&target_entity_id],
+        ai_meta.targeted_input_scores[&type_id_of(&trivial_targeted_input)][&target_entity_id],
         0.25
     );
 }
@@ -115,7 +117,7 @@ fn targeted_input_system_updates_aimeta_inputs() {
 
     let mut app = test_app();
 
-    app.add_system(targeted_input);
+    app.add_systems(Update, targeted_input);
 
     let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
     ai_definitions.map.insert(
@@ -124,7 +126,7 @@ fn targeted_input_system_updates_aimeta_inputs() {
             decisions: vec![], // this field doesn't matter for this test
             simple_inputs: Default::default(),
             targeted_inputs: HashMap::from_iter(vec![(
-                targeted_input as usize,
+                type_id_of(&targeted_input),
                 TargetedInputRequirements {
                     target_filter: FilterDefinition::Any,
                 },
@@ -145,9 +147,9 @@ fn targeted_input_system_updates_aimeta_inputs() {
     assert_eq!(ai_meta.targeted_input_scores.len(), 1);
     assert!(ai_meta
         .targeted_input_scores
-        .contains_key(&(targeted_input as usize)));
+        .contains_key(&type_id_of(&targeted_input)));
     assert_eq!(
-        ai_meta.targeted_input_scores[&(targeted_input as usize)][&target_entity_id],
+        ai_meta.targeted_input_scores[&type_id_of(&targeted_input)][&target_entity_id],
         0.5
     );
 }
@@ -160,7 +162,7 @@ fn trivial_targeted_input_system_respects_filter_set() {
     }
 
     let mut app = test_app();
-    app.add_system(trivial_targeted_input);
+    app.add_systems(Update, trivial_targeted_input);
 
     let mut ai_definitions = app.world.resource_mut::<AIDefinitions>();
     ai_definitions.map.insert(
@@ -169,7 +171,7 @@ fn trivial_targeted_input_system_respects_filter_set() {
             decisions: vec![], // this field doesn't matter for this test
             simple_inputs: Default::default(),
             targeted_inputs: HashMap::from_iter(vec![(
-                trivial_targeted_input as usize,
+                type_id_of(&trivial_targeted_input),
                 TargetedInputRequirements {
                     target_filter: FilterDefinition::Filtered(vec![vec![Filter::Inclusive(
                         TypeId::of::<AA>(),
@@ -191,13 +193,13 @@ fn trivial_targeted_input_system_respects_filter_set() {
     assert_eq!(ai_meta.targeted_input_scores.len(), 1);
     assert!(ai_meta
         .targeted_input_scores
-        .contains_key(&(trivial_targeted_input as usize)));
+        .contains_key(&type_id_of(&trivial_targeted_input)));
     assert_eq!(
-        ai_meta.targeted_input_scores[&(trivial_targeted_input as usize)][&entity_target],
+        ai_meta.targeted_input_scores[&type_id_of(&trivial_targeted_input)][&entity_target],
         0.75
     );
     assert!(
-        !ai_meta.targeted_input_scores[&(trivial_targeted_input as usize)]
+        !ai_meta.targeted_input_scores[&type_id_of(&trivial_targeted_input)]
             .contains_key(&entity_ignore)
     );
 }

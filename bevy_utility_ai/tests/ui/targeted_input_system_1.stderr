@@ -1,0 +1,5 @@
+error: Expected the parameter type to be a reference, Res or ResMut
+ --> tests/ui/targeted_input_system_1.rs:4:37
+  |
+4 | fn simple_targeted_input(some_data: (&SomeData,)) -> f32 {
+  |                                     ^^^^^^^^^^^^

@@ -13,7 +13,7 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(EguiPlugin)
+        app.add_plugins(EguiPlugin)
             .add_state::<GameViewState>()
             .add_plugin(SystemViewPlugin)
             .add_plugin(PlanetViewPlugin);

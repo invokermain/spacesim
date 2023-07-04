@@ -43,8 +43,8 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
             #(, #extra_args)*
         ) {
             let _span = bevy::prelude::debug_span!("Calculating Input", input = #quoted_name).entered();
+            let key = bevy_utility_ai::utils::type_id_of(&#name);
 
-            let key = #name as usize;
             for (entity, mut ai_meta #(, #component_arg_idents)*) in query_input_system.iter_mut() {
                 let _span = bevy::prelude::debug_span!("", entity = entity.index()).entered();
 

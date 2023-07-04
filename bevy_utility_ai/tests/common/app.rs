@@ -3,7 +3,7 @@ use bevy::log::LogPlugin;
 
 pub fn test_app() -> App {
     let mut app = App::new();
-    app.add_plugin(LogPlugin {
+    app.add_plugins(LogPlugin {
         filter: "wgpu=error".into(),
         level: bevy::log::Level::DEBUG,
     });

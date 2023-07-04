@@ -1,4 +1,5 @@
 use crate::considerations::Consideration;
+use crate::utils::trim_type_name;
 use bevy::prelude::Component;
 use bevy::reflect::{GetTypeRegistration, TypeRegistration};
 use std::any::{type_name, TypeId};
@@ -33,7 +34,7 @@ pub struct Decision {
 impl Decision {
     pub fn simple<C: Component + GetTypeRegistration>() -> Self {
         Self {
-            action_name: type_name::<C>().into(),
+            action_name: trim_type_name(type_name::<C>()).into(),
             action: TypeId::of::<C>(),
             type_registration: C::get_type_registration(),
             is_targeted: false,

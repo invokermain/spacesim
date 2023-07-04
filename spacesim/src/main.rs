@@ -21,7 +21,7 @@ fn main() {
     let mut app = App::new();
 
     if cfg!(debug_assertions) {
-        app.add_plugins(
+        app.add_pluginss(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -41,7 +41,7 @@ fn main() {
         ]))
         .add_plugin(DebuggerPlugin);
     } else {
-        app.add_plugins(
+        app.add_pluginss(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -57,7 +57,7 @@ fn main() {
         );
     }
 
-    app.add_plugin(SimulationPlugin)
+    app.add_plugins(SimulationPlugin)
         .add_plugin(GamePlugin)
         .add_plugin(ShapePlugin {
             base_config: ShapeConfig {

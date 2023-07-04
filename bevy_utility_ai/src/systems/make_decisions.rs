@@ -3,7 +3,7 @@ use crate::decisions::Filter;
 use crate::systems::update_action::UpdateEntityActionInternal;
 use crate::{AIDefinitions, AIMeta, Decision};
 use bevy::log::{debug, debug_span};
-use bevy::prelude::{Entity, EventWriter, Query, Res};
+use bevy::prelude::{Entity, Event, EventWriter, Query, Res};
 use bevy::utils::HashMap;
 
 pub(crate) fn make_decisions_sys(
@@ -77,7 +77,7 @@ pub(crate) fn make_decisions_sys(
                         .transform(consideration_input_score)
                         .clamp(0.0, 1.0);
                     debug!(
-                        "Consideration score for {} is {:.2} (raw {:.2})",
+                        "Consideration '{}' scored: {:.2} (raw {:.2})",
                         consideration.input_name,
                         consideration_score,
                         consideration_input_score
@@ -88,7 +88,7 @@ pub(crate) fn make_decisions_sys(
 
             if !decision.is_targeted {
                 evaluated_decisions.push((idx, None, decision_score));
-                debug!("Decision {} scored {:.2}", idx, decision_score);
+                debug!("Decision score: {:.2}", decision_score);
                 continue;
             }
 
@@ -113,8 +113,11 @@ pub(crate) fn make_decisions_sys(
                         .transform(consideration_input_score)
                         .clamp(0.0, 1.0);
                     debug!(
-                        "Consideration score for targeted system {} and entity {:?} is {:.2} (raw {:.2})",
-                        consideration.input_name, target_entity, consideration_score, consideration_input_score
+                        "Consideration '{}' for entity {:?} scored: {:.2} (raw {:.2})",
+                        consideration.input_name,
+                        target_entity,
+                        consideration_score,
+                        consideration_input_score
                     );
 
                     *targeted_scores
@@ -126,14 +129,14 @@ pub(crate) fn make_decisions_sys(
             for (entity, targeted_decision_score) in targeted_scores {
                 evaluated_decisions.push((idx, Some(entity), targeted_decision_score));
                 debug!(
-                    "Decision {} for entity {:?} scored {:.2}",
-                    idx, entity, targeted_decision_score
+                    "Decision score for entity {:?}: {:.2}",
+                    entity, targeted_decision_score
                 );
             }
         }
 
         if evaluated_decisions.is_empty() {
-            debug!("no scorable considerations for decision, skipping");
+            debug!("No scorable considerations for decision, skipping");
             continue;
         }
 
@@ -222,6 +225,7 @@ pub(crate) fn make_decisions_sys(
 
 /// This event is for public consumption.
 /// Note that action might stay the same but target can change.
+#[derive(Event)]
 pub struct EntityActionChangeEvent {
     pub entity_id: Entity,
     pub prev_action: String,

@@ -5,6 +5,7 @@ use syn::{Error, FnArg, Ident, PathSegment, Type};
 pub(crate) enum SigType {
     Component,
     Extra,
+    Entity,
 }
 
 pub(crate) struct ParsedInput {
@@ -15,6 +16,7 @@ pub(crate) struct ParsedInput {
 
 pub(crate) const UNEXPECTED_TYPE_ERR: &str =
     "Expected the parameter type to be a reference, Res or ResMut";
+pub(crate) const REQUIRES_REFERENCE_ERR: &str = "Only Entity cannot be borrowed here";
 pub(crate) const ACCEPTED_EXTRA_SIGNATURE_TYPES: [&str; 2] = ["Res", "ResMut"];
 
 pub(crate) fn parse_input(input: &FnArg) -> Result<ParsedInput, Error> {
@@ -31,8 +33,8 @@ pub(crate) fn parse_input(input: &FnArg) -> Result<ParsedInput, Error> {
                 }
             };
             let (sig_type, tokens) = match arg.ty.as_ref() {
-                syn::Type::Reference(reference) => match &reference.elem.as_ref() {
-                    syn::Type::Path(path) => (
+                Type::Reference(reference) => match &reference.elem.as_ref() {
+                    Type::Path(path) => (
                         SigType::Component,
                         path.path
                             .segments
@@ -47,12 +49,13 @@ pub(crate) fn parse_input(input: &FnArg) -> Result<ParsedInput, Error> {
                         ));
                     }
                 },
-                syn::Type::Path(path) => {
+                Type::Path(path) => {
                     if let Some(first_segment) = path.path.segments.first() {
-                        if ACCEPTED_EXTRA_SIGNATURE_TYPES
-                            .contains(&first_segment.ident.to_string().as_str())
-                        {
+                        let arg_type_str = first_segment.ident.to_string();
+                        if ACCEPTED_EXTRA_SIGNATURE_TYPES.contains(&arg_type_str.as_str()) {
                             (SigType::Extra, path.to_token_stream())
+                        } else if &arg_type_str == "Entity" {
+                            (SigType::Entity, path.to_token_stream())
                         } else {
                             return Err(Error::new_spanned(
                                 arg.ty.clone().into_token_stream(),
@@ -125,6 +128,23 @@ pub(crate) fn parse_tuple_input(input: &FnArg) -> Result<ParsedTupleInput, Error
                                         ));
                                     }
                                 })
+                            }
+                            Type::Path(path) => {
+                                if let Some(first_segment) = path.path.segments.first() {
+                                    if first_segment.ident.to_string().as_str() == "Entity" {
+                                        arg_types.push(first_segment.clone());
+                                    } else {
+                                        return Err(Error::new_spanned(
+                                            arg.ty.clone().into_token_stream(),
+                                            REQUIRES_REFERENCE_ERR.to_string(),
+                                        ));
+                                    }
+                                } else {
+                                    return Err(Error::new_spanned(
+                                        arg.ty.clone().into_token_stream(),
+                                        REQUIRES_REFERENCE_ERR.to_string(),
+                                    ));
+                                }
                             }
                             _ => {
                                 return Err(Error::new_spanned(

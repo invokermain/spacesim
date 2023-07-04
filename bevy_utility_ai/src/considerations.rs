@@ -1,16 +1,8 @@
 use crate::response_curves::{LinearCurve, ResponseCurve};
-use crate::AIDefinitions;
-use bevy::app::{IntoSystemAppConfig, SystemAppConfig};
-use bevy::ecs::archetype::Archetypes;
-use bevy::ecs::component::Components;
-use bevy::ecs::entity::Entities;
-use bevy::ecs::query::WorldQuery;
-use bevy::prelude::{Query, Res};
-use std::any::type_name;
-
-fn type_name_of<T>(_: T) -> &'static str {
-    type_name::<T>()
-}
+use crate::utils;
+use bevy::ecs::schedule::SystemConfigs;
+use bevy::prelude::IntoSystemConfigs;
+use std::any::TypeId;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ConsiderationType {
@@ -18,45 +10,22 @@ pub enum ConsiderationType {
     Targeted,
 }
 
-pub trait SimpleConsideration {
-    fn input_name(&self) -> String;
-    fn input_key(&self) -> usize;
-    fn as_app_config(&self) -> SystemAppConfig;
-}
-
-impl<Q> SimpleConsideration for fn(Query<Q>, Res<AIDefinitions>)
-where
-    Q: WorldQuery + 'static,
-{
-    fn input_name(&self) -> String {
-        type_name_of(*self).into()
-    }
-
-    fn input_key(&self) -> usize {
-        *self as usize
-    }
-
-    fn as_app_config(&self) -> SystemAppConfig {
-        self.clone().into_app_config()
-    }
-}
-
 pub struct Consideration {
     pub input_name: String,
-    pub input: usize,
+    pub input: TypeId,
     pub response_curve: Box<dyn ResponseCurve>,
     pub consideration_type: ConsiderationType,
     // This is Option to allow it to be Taken out later on as SystemAppConfig does not implement
     // clone.
-    pub(crate) system_app_config: Option<SystemAppConfig>,
+    pub(crate) system_app_config: Option<SystemConfigs>,
 }
 
 impl Consideration {
     fn construct(
         input_name: String,
-        input: usize,
+        input: TypeId,
         consideration_type: ConsiderationType,
-        system_app_config: SystemAppConfig,
+        system_app_config: SystemConfigs,
     ) -> Self {
         Self {
             input_name,
@@ -67,30 +36,21 @@ impl Consideration {
         }
     }
 
-    pub fn simple<Q: WorldQuery + 'static>(input: fn(Query<Q>, Res<AIDefinitions>)) -> Self {
+    pub fn simple<M>(input: impl IntoSystemConfigs<M> + 'static) -> Self {
         Consideration::construct(
-            type_name_of(input).into(),
-            input as usize,
+            utils::trim_type_name(utils::type_name_of(&input)).into(),
+            utils::type_id_of(&input),
             ConsiderationType::Simple,
-            input.into_app_config(),
+            input.into_configs(),
         )
     }
 
-    pub fn targeted<Q1: WorldQuery + 'static, Q2: WorldQuery + 'static>(
-        input: fn(
-            Query<Q1>,
-            Query<Q2>,
-            Res<AIDefinitions>,
-            &Archetypes,
-            &Entities,
-            &Components,
-        ),
-    ) -> Self {
+    pub fn targeted<M>(input: impl IntoSystemConfigs<M> + 'static) -> Self {
         Consideration::construct(
-            type_name_of(input).into(),
-            input as usize,
+            utils::trim_type_name(utils::type_name_of(&input)).into(),
+            utils::type_id_of(&input),
             ConsiderationType::Targeted,
-            input.into_app_config(),
+            input.into_configs(),
         )
     }
 

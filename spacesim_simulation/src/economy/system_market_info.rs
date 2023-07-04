@@ -1,11 +1,13 @@
 use crate::economy::commodity_type::CommodityType;
 use crate::economy::market::Market;
 use bevy::prelude::{Entity, Query, ResMut, Resource};
+use bevy::utils::hashbrown::HashMap;
 use strum::IntoEnumIterator;
 
 #[derive(Resource, Default)]
 pub struct SystemMarketInfo {
-    trade_potential: Vec<MarketTradePotential>,
+    pub trade_potentials: Vec<MarketTradePotential>,
+    pub total_trade_potential: HashMap<Entity, f32>,
 }
 
 /// Represents the demand_modifier differential between two Markets. `trade_potential` will always
@@ -49,5 +51,14 @@ pub fn update_system_market_info(
         })
     }
 
-    res_system_market_info.trade_potential = market_trade_potentials;
+    res_system_market_info.total_trade_potential = HashMap::new();
+    for trade in &market_trade_potentials {
+        let entry = res_system_market_info
+            .total_trade_potential
+            .entry(trade.positive_market_entity)
+            .or_insert(0.0);
+        *entry += trade.trade_potential;
+    }
+
+    res_system_market_info.trade_potentials = market_trade_potentials;
 }

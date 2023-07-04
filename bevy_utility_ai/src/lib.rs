@@ -5,6 +5,7 @@ pub mod define_ai;
 pub mod plugin;
 pub mod response_curves;
 pub mod systems;
+pub mod utils;
 
 pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
@@ -47,23 +48,23 @@ pub struct AIDefinition {
     /// The decisions that make up this AIDefinition
     pub decisions: Vec<Decision>,
     /// The simple inputs used for this AI, passed to AIDefinition on register.
-    pub simple_inputs: HashSet<usize>,
+    pub simple_inputs: HashSet<TypeId>,
     /// The targeted inputs used for this AI, passed to AIDefinition on register.
-    pub targeted_inputs: HashMap<usize, TargetedInputRequirements>,
+    pub targeted_inputs: HashMap<TypeId, TargetedInputRequirements>,
 }
 
 impl AIDefinition {
-    pub fn requires_targeted_input(&self, input: &usize) -> bool {
+    pub fn requires_targeted_input(&self, input: &TypeId) -> bool {
         self.targeted_inputs.contains_key(input)
     }
 
-    pub fn requires_simple_input(&self, input: &usize) -> bool {
+    pub fn requires_simple_input(&self, input: &TypeId) -> bool {
         self.simple_inputs.contains(input)
     }
 
     pub fn get_targeted_input_requirements(
         &self,
-        input: &usize,
+        input: &TypeId,
     ) -> &TargetedInputRequirements {
         &self.targeted_inputs[input]
     }
