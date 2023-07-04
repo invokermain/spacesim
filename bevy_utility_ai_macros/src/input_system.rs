@@ -31,7 +31,7 @@ pub(crate) fn input_system(_: TokenStream, input: TokenStream) -> Result<TokenSt
     let extra_args: Vec<proc_macro2::TokenStream> = parsed_sig
         .iter()
         .filter(|sig| sig.sig_type == SigType::Extra)
-        .map(|ParsedInput { ident, tokens, .. }| quote! { #ident: bevy::prelude::#tokens })
+        .map(|ParsedInput { ident, tokens, .. }| quote! { #ident: #tokens })
         .collect();
 
     let body = item_fn.block;

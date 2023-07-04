@@ -98,16 +98,17 @@ impl Market {
         supply_modifier * delta_modifier
     }
 
+    /// Returns a list of uncomitted Transactions sorted by cheapest first.
     pub fn get_buyer_quotes(
         &self,
         buyer: Entity,
         commodity_type: CommodityType,
         units: f32,
-        market_seller_query: Query<MarketSellerQuery>,
-    ) -> Vec<Transaction> {
+        market_seller_query: &Query<MarketSellerQuery>,
+    ) -> VecDeque<Transaction> {
         let commodity_idx = commodity_type as usize;
         if self.total_supply[commodity_idx] <= 0.1 {
-            return Vec::new();
+            return VecDeque::new();
         }
 
         let mut market_sellers: Vec<MarketSellerQueryItem> = self
@@ -120,7 +121,7 @@ impl Market {
             a.pricing.value[commodity_idx].total_cmp(&b.pricing.value[commodity_idx])
         });
 
-        let mut transactions = Vec::new();
+        let mut transactions = VecDeque::new();
         let mut unfulfilled_units = units;
 
         for seller in market_sellers {
@@ -133,7 +134,7 @@ impl Market {
             let unit_price = self.demand_price_modifier[commodity_idx]
                 * seller.pricing.value[commodity_idx];
 
-            transactions.push(Transaction {
+            transactions.push_back(Transaction {
                 buyer,
                 seller: seller.entity,
                 commodity_type,

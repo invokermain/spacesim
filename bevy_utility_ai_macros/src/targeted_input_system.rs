@@ -134,7 +134,7 @@ pub(crate) fn targeted_input_system(
 
     let extra_args: Vec<proc_macro2::TokenStream> = extra_inputs
         .iter()
-        .map(|ParsedInput { ident, tokens, .. }| quote! { #ident: bevy::prelude::#tokens })
+        .map(|ParsedInput { ident, tokens, .. }| quote! { #ident: #tokens })
         .collect();
 
     let output = quote! {

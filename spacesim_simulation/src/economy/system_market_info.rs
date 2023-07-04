@@ -1,5 +1,6 @@
 use crate::economy::commodity_type::CommodityType;
 use crate::economy::market::Market;
+use bevy::log::info;
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 use bevy::utils::hashbrown::HashMap;
 use strum::IntoEnumIterator;
@@ -7,15 +8,16 @@ use strum::IntoEnumIterator;
 #[derive(Resource, Default)]
 pub struct SystemMarketInfo {
     pub trade_potentials: Vec<MarketTradePotential>,
-    pub total_trade_potential: HashMap<Entity, f32>,
+    pub market_total_trade_potential: HashMap<Entity, f32>,
 }
 
 /// Represents the demand_modifier differential between two Markets. `trade_potential` will always
 /// be positive.
+#[derive(Copy, Clone)]
 pub struct MarketTradePotential {
-    trade_potential: f32,
-    positive_market_entity: Entity,
-    negative_market_entity: Entity,
+    pub trade_potential: f32,
+    pub positive_market_entity: Entity,
+    pub negative_market_entity: Entity,
 }
 
 /// Average unit cost of all goods at source vs all goods at target
@@ -27,10 +29,11 @@ pub fn update_system_market_info(
     let mut iter = q_markets.iter_combinations();
 
     while let Some([(entity_a, market_a), (entity_b, market_b)]) = iter.fetch_next() {
+        // Trade Potential for each commodity assuming you are buying at A, selling at B.
         let commodity_trade_potential: Vec<f32> = CommodityType::iter()
             .map(|commodity_type| {
-                market_a.demand_price_modifier[commodity_type as usize]
-                    - market_b.demand_price_modifier[commodity_type as usize]
+                market_b.demand_price_modifier[commodity_type as usize]
+                    - market_a.demand_price_modifier[commodity_type as usize]
             })
             .collect();
 
@@ -51,10 +54,10 @@ pub fn update_system_market_info(
         })
     }
 
-    res_system_market_info.total_trade_potential = HashMap::new();
+    res_system_market_info.market_total_trade_potential = HashMap::new();
     for trade in &market_trade_potentials {
         let entry = res_system_market_info
-            .total_trade_potential
+            .market_total_trade_potential
             .entry(trade.positive_market_entity)
             .or_insert(0.0);
         *entry += trade.trade_potential;

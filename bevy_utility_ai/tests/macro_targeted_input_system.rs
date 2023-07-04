@@ -2,6 +2,7 @@ mod common;
 
 use crate::common::{SomeOtherData, AA};
 use bevy::app::Update;
+use bevy::prelude::Res;
 use bevy::{app::App, prelude::Time, utils::HashMap};
 use bevy_utility_ai::decisions::Filter;
 use bevy_utility_ai::utils::type_id_of;

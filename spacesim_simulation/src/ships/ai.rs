@@ -1,4 +1,4 @@
-use bevy::prelude::App;
+use bevy::prelude::{App, Res};
 use bevy::{
     prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
@@ -44,14 +44,14 @@ pub(crate) fn available_hold_capacity(storage: &CommodityStorage) -> f32 {
     storage.available_capacity / storage.max_capacity
 }
 
-/// Total trade potential of a Market. Range: 0 ->
+/// Total trade potential of a Market. Range: 0 -> ~1000 (?)
 #[targeted_input_system]
 pub(crate) fn market_trade_potential(
     target: (Entity,),
     res_system_market_info: Res<SystemMarketInfo>,
 ) -> f32 {
     *res_system_market_info
-        .total_trade_potential
+        .market_total_trade_potential
         .get(&target.0)
         .unwrap_or(&0.0)
 }

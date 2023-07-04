@@ -1,6 +1,7 @@
 mod common;
 
 use bevy::app::{App, Update};
+use bevy::prelude::Res;
 use bevy::time::Time;
 use bevy::utils::hashbrown::HashSet;
 use bevy_utility_ai::utils::type_id_of;
