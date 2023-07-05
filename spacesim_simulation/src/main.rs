@@ -21,7 +21,7 @@ fn main() {
         .add_plugins((
             MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0))),
             LogPlugin {
-                filter: "info,wgpu_core=warn,wgpu_hal=warn,bevy_utility_ai=debug".into(),
+                filter: "info,wgpu_core=warn,wgpu_hal=warn,bevy_utility_ai=info".into(),
                 level: bevy::log::Level::DEBUG,
             },
             SimulationPlugin,

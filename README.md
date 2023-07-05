@@ -21,6 +21,9 @@ These are things I am likely to work on in the near future.
 **Ships**
 1. Ships have a fuel system.
 
+**Economy**
+1. Market price should be decoupled from a Company's CommodityPricing 
+
 ## Design Goals
 
 These are things that don't make sense to do in the near future, but I would like the game to have.

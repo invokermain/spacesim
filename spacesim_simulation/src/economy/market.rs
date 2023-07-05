@@ -226,7 +226,7 @@ impl Market {
         buyer_wealth: &mut Wealth,
         seller_storage: &mut CommodityStorage,
         seller_wealth: &mut Wealth,
-        time: &Res<Time>,
+        timestamp: f32,
     ) -> Result<(), String> {
         let Transaction {
             buyer,
@@ -238,11 +238,11 @@ impl Market {
         let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !self.market_members.contains(buyer) {
-            return Err("Buyer is not a member of this market".into());
+        if self.market_members.contains(buyer) {
+            return Err("Buyer is a member of this market".into());
         }
-        if self.market_members.contains(seller) {
-            return Err("Seller is a member of this market".into());
+        if !self.market_members.contains(seller) {
+            return Err("Seller is not a member of this market".into());
         }
         if !seller_storage.can_remove(*commodity_type, *units) {
             return Err(format!(
@@ -269,7 +269,7 @@ impl Market {
         seller_wealth.value += transaction_total_cost;
 
         self.transaction_history
-            .push_front((time.elapsed_seconds(), transaction.clone()));
+            .push_front((timestamp, transaction.clone()));
 
         if self.transaction_history.len() > TRANSACTION_HISTORY_LENGTH {
             self.transaction_history.pop_back();
@@ -280,7 +280,7 @@ impl Market {
         Ok(())
     }
 
-    // This assumes that the seller is in market, and the buyer is out of market.
+    // This assumes that the buyer is in market, and the seller is out of market.
     pub fn sell(
         &mut self,
         transaction: &Transaction,
@@ -300,11 +300,11 @@ impl Market {
         let transaction_total_cost = unit_price * units;
 
         // validate that the transaction can go ahead
-        if !self.market_members.contains(seller) {
-            return Err("Seller is not a member of this market".into());
+        if self.market_members.contains(seller) {
+            return Err("Seller is a member of this market".into());
         }
-        if self.market_members.contains(buyer) {
-            return Err("Buyer is a member of this market".into());
+        if !self.market_members.contains(buyer) {
+            return Err("Buyer is not a member of this market".into());
         }
         if !seller_storage.can_remove(*commodity_type, *units) {
             return Err(format!(

@@ -53,7 +53,7 @@ pub(crate) fn make_decisions_sys(
                 continue;
             }
 
-            let mut decision_score = 1.0;
+            let mut decision_score = decision.base_score;
 
             // consider non-targeted considerations
             for consideration in decision

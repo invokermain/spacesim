@@ -2,7 +2,7 @@ use crate::common::components::Name;
 use bevy::prelude::Bundle;
 
 use crate::common::marker_components::IsShip;
-use crate::economy::components::CommodityStorage;
+use crate::economy::components::{CommodityStorage, Wealth};
 use crate::ships::ai::ShipAI;
 
 use super::components::SystemCoordinates;
@@ -11,6 +11,7 @@ use super::components::SystemCoordinates;
 pub struct ShipBundle {
     name: Name,
     system_coordinates: SystemCoordinates,
+    wealth: Wealth,
     commodity_storage: CommodityStorage,
     ai: ShipAI,
     marker: IsShip,
@@ -22,6 +23,7 @@ impl ShipBundle {
             name,
             system_coordinates,
             commodity_storage: CommodityStorage::new(5.0),
+            wealth: Wealth { value: 10.0 },
             marker: IsShip {},
             ai: ShipAI {},
         }

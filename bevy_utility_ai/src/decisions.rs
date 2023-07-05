@@ -27,6 +27,7 @@ pub struct Decision {
     pub(crate) type_registration: TypeRegistration,
     pub(crate) is_targeted: bool,
     pub(crate) considerations: Vec<Consideration>,
+    pub(crate) base_score: f32,
     pub(crate) subject_filters: Vec<Filter>,
     pub(crate) target_filters: Vec<Filter>,
 }
@@ -38,6 +39,7 @@ impl Decision {
             action: TypeId::of::<C>(),
             type_registration: C::get_type_registration(),
             is_targeted: false,
+            base_score: 1.0,
             considerations: Vec::new(),
             subject_filters: Vec::new(),
             target_filters: Vec::new(),
@@ -46,10 +48,11 @@ impl Decision {
 
     pub fn targeted<C: Component + GetTypeRegistration>() -> Self {
         Self {
-            action_name: type_name::<C>().into(),
+            action_name: trim_type_name(type_name::<C>()).into(),
             action: TypeId::of::<C>(),
             type_registration: C::get_type_registration(),
             is_targeted: true,
+            base_score: 1.0,
             considerations: Vec::new(),
             subject_filters: Vec::new(),
             target_filters: Vec::new(),
@@ -90,6 +93,19 @@ impl Decision {
 
         self.target_filters
             .push(Filter::Exclusive(TypeId::of::<C>()));
+        self
+    }
+
+    /// Set the base score for this decision. The base score is the initial value that gets
+    /// multiplied cumatively by each consideration. The default base score is 1.0.
+    /// This can be used to either create a fallback decision with no considerations, so that the AI
+    /// does something appropriate when there is no good decision to make.
+    /// This can also be used to weight decisions at the decision level.
+    pub fn set_base_score(mut self, score: f32) -> Self {
+        if score <= 0.0 || score >= 10.0 {
+            panic!("base_score must be between 0.0 and 10.0");
+        }
+        self.base_score = score;
         self
     }
 }

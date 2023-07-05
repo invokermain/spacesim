@@ -1,4 +1,4 @@
-use bevy::prelude::{App, Res};
+use bevy::prelude::{App, Entity, Res};
 use bevy::{
     prelude::{Component, ReflectComponent, ReflectDefault},
     reflect::Reflect,
@@ -12,7 +12,7 @@ use bevy_utility_ai::{input_system, targeted_input_system};
 
 use super::components::SystemCoordinates;
 use crate::common::marker_components::IsPlanet;
-use crate::economy::components::CommodityStorage;
+use crate::economy::components::{CommodityStorage, Wealth};
 use crate::economy::market::Market;
 use crate::economy::system_market_info::SystemMarketInfo;
 use crate::planet::components::OnPlanet;
@@ -29,6 +29,10 @@ pub struct ActionMoveToPlanet {}
 #[reflect(Component, Default)]
 pub struct ActionPurchaseGoodsFromMarket {}
 
+#[derive(Component, Reflect, Default)]
+#[reflect(Component, Default)]
+pub struct ActionTakeOffFromPlanet {}
+
 /// Distance between two coordinates in km. Range: 0 -> f32::MAX
 #[targeted_input_system]
 pub(crate) fn distance_to_nearby_planet(
@@ -44,7 +48,13 @@ pub(crate) fn available_hold_capacity(storage: &CommodityStorage) -> f32 {
     storage.available_capacity / storage.max_capacity
 }
 
-/// Total trade potential of a Market. Range: 0 -> ~1000 (?)
+/// The subject's available wealth. Range: 0 -> ~1000
+#[input_system]
+pub(crate) fn available_wealth(wealth: &Wealth) -> f32 {
+    wealth.value
+}
+
+/// Total trade potential of a Market. Range: 0 -> ~1000
 #[targeted_input_system]
 pub(crate) fn market_trade_potential(
     target: (Entity,),
@@ -84,20 +94,26 @@ pub(super) fn define_ship_ai(app: &mut App) {
                 .add_consideration(
                     Consideration::simple(available_hold_capacity)
                         .with_response_curve(PolynomialCurve::new(1.0, 3.0)),
+                )
+                .add_consideration(
+                    Consideration::simple(available_wealth).with_response_curve(
+                        PolynomialCurve::new(1.0, 0.15).shifted(-1.0, -1.0),
+                    ),
                 ),
         )
+        .add_decision(Decision::simple::<ActionTakeOffFromPlanet>().set_base_score(0.20))
         .register(app);
 }
 
 // Actions
 // - TravelToPlanet(Target)
 
-// Decision "go to planet so we can buy stuff", action "TravelToPlanet(Target)"
-// - am I in space ✔️ (I think... docking removes SystemCoordinates)
+// Decision "go to planet so we can buy stuff", action "TravelToPlanet(Target)" ✔️
+// - am I in space ✔️
 // - how empty my hold is ✔️
 // - for each planet in system:
 //    - distance to the planet ✔️
-//    - how discounted goods are on the planet ❌
+//    - trade potential of the planet ✔️
 
 // Decision "go to planet so we can sell stuff", action "TravelToPlanet(Target)"
 // - am I in space
@@ -107,9 +123,14 @@ pub(super) fn define_ship_ai(app: &mut App) {
 //    - potential profit from sales on the planet
 
 // Decision "purchase goods from market", action "PurchaseCommodities"
-// - am I on a planet
-// - how empty my hold is
-// - how discounted goods are on the planet I am on
+// Note: this might be the first use of a targeted consideration for a simple decision
+// - am I on a planet ✔️
+// - how empty my hold is ✔️
+// - trade potential of commodities on planet (needs to factor in distance to other markets?) ❌
+// - how much money I have ✔️
+
+// Decision "take off from planet", action "TakeOffFromPlanet"
+// - static low score value
 
 // Decision "sell goods to market", action "SellCommodities"
 // - am I on a planet

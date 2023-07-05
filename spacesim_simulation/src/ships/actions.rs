@@ -1,16 +1,13 @@
 use bevy::app::FixedUpdate;
-use bevy::log::{info, warn};
+use bevy::log::info;
 use bevy::prelude::{App, Commands, Entity, Query, Res, Time, Vec3, With, Without};
 use bevy_utility_ai::ActionTarget;
 use strum::IntoEnumIterator;
 
 use crate::economy::commodity_type::CommodityType;
 use crate::economy::components::{CommodityStorage, Wealth};
-use crate::economy::market::Market;
-use crate::economy::market_wq::{
-    MarketSellerMutQuery, MarketSellerMutQueryItem, MarketSellerQuery,
-};
-use crate::economy::system_market_info::{MarketTradePotential, SystemMarketInfo};
+use crate::economy::market::{Market, Transaction};
+use crate::economy::market_wq::{MarketSellerMutQuery, MarketSellerMutQueryReadOnlyItem};
 use crate::ships::ai::ActionPurchaseGoodsFromMarket;
 use crate::{common::marker_components::IsPlanet, planet::components::OnPlanet};
 
@@ -53,8 +50,10 @@ pub(crate) fn purchase_goods_from_market(
         With<ActionPurchaseGoodsFromMarket>,
     >,
     mut q_market: Query<&mut Market>,
-    q_market_seller: Query<MarketSellerQuery>,
-    mut q_market_seller_mut: Query<MarketSellerMutQuery>,
+    mut q_market_seller_mut: Query<
+        MarketSellerMutQuery,
+        Without<ActionPurchaseGoodsFromMarket>,
+    >,
     r_time: Res<Time>,
 ) {
     for (subject_entity_id, on_planet, mut commodity_storage, mut wealth) in
@@ -66,37 +65,84 @@ pub(crate) fn purchase_goods_from_market(
                 .zip(market.demand_price_modifier)
                 .collect();
             commodity_demand.sort_by(|a, b| a.1.total_cmp(&b.1));
-            for commodity in commodity_demand.iter().map(|(com, _)| com) {
-                let mut purchase_quotes = market.get_buyer_quotes(
-                    subject_entity_id,
-                    *commodity,
-                    commodity_storage.available_capacity,
-                    &q_market_seller,
-                );
-                while commodity_storage.available_capacity > 0.01 && wealth.value > 0.01 {
-                    if let Some(mut quote) = purchase_quotes.pop_front() {
-                        let desired_units =
-                            f32::min(quote.units, commodity_storage.available_capacity);
-                        quote.units = desired_units;
-                        let MarketSellerMutQueryItem {
-                            storage: mut seller_commodity_storage,
-                            wealth: mut seller_wealth,
-                            ..
-                        } = q_market_seller_mut.get_mut(quote.seller).unwrap();
-                        let purchase = market.buy(
-                            &quote,
-                            &mut commodity_storage,
-                            &mut wealth,
-                            &mut seller_commodity_storage,
-                            &mut seller_wealth,
-                            &r_time,
-                        );
-                        match purchase {
-                            Ok(_) => {
-                                info!("succesfully bought goods from market: {:?}", quote)
-                            }
-                            Err(err) => info!("unable to purchase from market: {}", err),
+
+            // Purchase the cheapest commodity
+            if let Some((commodity_type, _)) = commodity_demand.first() {
+                let commodity_idx = *commodity_type as usize;
+                let mut cheapest_seller: Option<MarketSellerMutQueryReadOnlyItem> = None;
+                for market_member in &market.market_members {
+                    let next_seller = q_market_seller_mut.get(*market_member).ok();
+                    if let Some(next_seller) = next_seller {
+                        if next_seller.storage.storage[commodity_idx] <= 0.1 {
+                            continue;
                         }
+                        match &cheapest_seller {
+                            None => cheapest_seller = Some(next_seller),
+                            Some(current_seller) => {
+                                if next_seller.pricing.value[commodity_idx]
+                                    < current_seller.pricing.value[commodity_idx]
+                                {
+                                    cheapest_seller = Some(next_seller);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if cheapest_seller.is_none() {
+                    continue;
+                }
+
+                // Purchase from the cheapest seller
+                if let Some(mut seller) = q_market_seller_mut
+                    .get_mut(cheapest_seller.unwrap().entity)
+                    .ok()
+                {
+                    let seller_commodity_quantity = seller.storage.storage[commodity_idx];
+                    let purchase_quantity = f32::min(
+                        f32::min(
+                            seller_commodity_quantity,
+                            commodity_storage.available_capacity,
+                        ),
+                        // Note: we buy in granular steps so that our AI has a chance to decide to
+                        //       do something else when thye have bough some goods, e.g. refuel if
+                        //       money is low.
+                        commodity_storage.max_capacity * 0.20,
+                    );
+
+                    let unit_price = market.demand_price_modifier[commodity_idx]
+                        * seller.pricing.value[commodity_idx];
+
+                    // only purchase what we can afford
+                    let units =
+                        f32::min(purchase_quantity, (wealth.value * unit_price) - 0.05);
+
+                    let transaction = Transaction {
+                        buyer: subject_entity_id,
+                        seller: seller.entity,
+                        commodity_type: *commodity_type,
+                        units,
+                        unit_price,
+                    };
+
+                    match market.buy(
+                        &transaction,
+                        &mut commodity_storage,
+                        &mut wealth,
+                        seller.storage.as_mut(),
+                        seller.wealth.as_mut(),
+                        r_time.elapsed_seconds(),
+                    ) {
+                        Ok(_) => info!(
+                            "entity {:?} | purchased {:.1} units of {:?} | price {:.2} | wealth {:.2} -> {:.2}",
+                            transaction.buyer,
+                            transaction.units,
+                            transaction.commodity_type,
+                            transaction.units * transaction.unit_price,
+                            wealth.value + transaction.units * transaction.unit_price,
+                            wealth.value,
+                        ),
+                        Err(err) => info!("unable to purchase goods from market: {:?}", err),
                     }
                 }
             }
