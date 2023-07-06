@@ -16,10 +16,9 @@ with the market in different ways:
   can travel between markets, and therefore balancing out supply and demand.
 
 ## Desired behaviours:
-- If the Producers in a market cannot meet the demand of the Consumers, prices
-  should increase.
+- If there is a shotrage of supply in a Market prices should increase.
 - If there is a surplus of supply in a Market prices should decrease.
-- Traders should be able to exploit the above to make profit evening out supply
+- Traders (including the Player) should be able to exploit the above to make profit evening out supply
   and demand across different markets.
 
 ## Potential Solutions
@@ -29,13 +28,24 @@ directly (Direct), and one where supply and demand is organic (Organic).
 
 ### Direct Modelling
 
-In this approach the market can track supply and demand on a market and calculate
-a market price for a given commodity (note, this is the current approach taken).
-This approach seems simpler as there are no Buy Orders or Sell Orders. However some
-aspects of the simulation become less obvious.
+In this approach the market tracks supply and demand on a market and artificially calculates a market price for a given
+commodity. This is the current approach taken by the game as this approach seems simpler.
 
-For example, if a Trader were to sell commodities in a Market, who do they sell
-to? Does the Market have its own storage and wealth?
+This approach requires that:
+- Commodities have a fixed global base price.
+- Markets have their own (practically infinite) commodity storage.
+
+The simplest way to implement this is:
+- Producers produce for the Market at their specified rate. 
+- Consumers consume from the Market at their specified rate.
+- Producers and Consumers have no Wealth.
+
+This approach runs the risk of not seeming organic/reactive to the player. This could either be mitigated by migrating
+to a more organic approach (see below), or by complicating the modeling.
+
+For example, imagine if a planet produced commodity X, but nothing in the system consumed it. In the simplest
+implementation that commodity would keep stockpiling, and the price would approach zero. Supply does not drive demand at
+all, and vice versa.
 
 ## Organic Modelling
 
@@ -44,5 +54,5 @@ existing Sell Order, and when selling the highest existing Buy Order. This
 approach seems more natural but quickly brings up difficult questions concerning
 the modelling.
 
-For example, how long lived are Orders? Do they persist between ticks. In what order
+For example, how long-lived are Orders? Do they persist between ticks? If not what order
 do you create and execute the Orders?

@@ -66,6 +66,17 @@ pub(crate) fn market_trade_potential(
         .unwrap_or(&0.0)
 }
 
+// /// Expected revenue of selling goods at a target Market. Range: 0 -> ~50
+// #[targeted_input_system]
+// pub(crate) fn expected_sale_revenue(
+//     target: (Entity, &Market),
+// ) -> f32 {
+//     *res_system_market_info
+//         .market_total_trade_potential
+//         .get(&target.0)
+//         .unwrap_or(&0.0)
+// }
+
 pub(super) fn define_ship_ai(app: &mut App) {
     DefineAI::<ShipAI>::new()
         .add_decision(
@@ -88,6 +99,27 @@ pub(super) fn define_ship_ai(app: &mut App) {
                     ),
                 ),
         )
+        // .add_decision(
+        //     Decision::targeted::<ActionMoveToPlanet>()
+        //         .target_filter_include::<IsPlanet>()
+        //         .target_filter_include::<Market>()
+        //         .subject_filter_exclude::<OnPlanet>()
+        //         .add_consideration(
+        //             Consideration::targeted(distance_to_nearby_planet).with_response_curve(
+        //                 LinearCurve::new(-1.0 / 150_000_000.0).shifted(0.0, 1.0),
+        //             ),
+        //         )
+        //         .add_consideration(
+        //             Consideration::simple(available_hold_capacity).with_response_curve(
+        //                 PolynomialCurve::new(-1.0, 3.0).shifted(0.0, 1.0),
+        //             ),
+        //         )
+        //         .add_consideration(
+        //             Consideration::targeted(market_trade_potential).with_response_curve(
+        //                 PolynomialCurve::new(1.0, 0.1).shifted(-1.0, -1.0),
+        //             ),
+        //         ),
+        // )
         .add_decision(
             Decision::simple::<ActionPurchaseGoodsFromMarket>()
                 .subject_filter_include::<OnPlanet>()

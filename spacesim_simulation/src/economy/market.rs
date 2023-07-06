@@ -98,60 +98,6 @@ impl Market {
         supply_modifier * delta_modifier
     }
 
-    /// Returns a list of uncomitted Transactions sorted by cheapest first.
-    pub fn get_buyer_quotes(
-        &self,
-        buyer: Entity,
-        commodity_type: CommodityType,
-        units: f32,
-        market_seller_query: &Query<MarketSellerQuery>,
-    ) -> VecDeque<Transaction> {
-        let commodity_idx = commodity_type as usize;
-        if self.total_supply[commodity_idx] <= 0.1 {
-            return VecDeque::new();
-        }
-
-        let mut market_sellers: Vec<MarketSellerQueryItem> = self
-            .market_members
-            .iter()
-            .filter_map(|&entity| market_seller_query.get(entity).ok())
-            .collect();
-
-        market_sellers.sort_by(|a, b| {
-            a.pricing.value[commodity_idx].total_cmp(&b.pricing.value[commodity_idx])
-        });
-
-        let mut transactions = VecDeque::new();
-        let mut unfulfilled_units = units;
-
-        for seller in market_sellers {
-            let seller_commodity_quantity = seller.storage.storage[commodity_idx];
-            if seller_commodity_quantity < 0.1 {
-                continue;
-            }
-            let purchase_quantity = f32::min(seller_commodity_quantity, units);
-
-            let unit_price = self.demand_price_modifier[commodity_idx]
-                * seller.pricing.value[commodity_idx];
-
-            transactions.push_back(Transaction {
-                buyer,
-                seller: seller.entity,
-                commodity_type,
-                units: purchase_quantity,
-                unit_price,
-            });
-
-            unfulfilled_units -= purchase_quantity;
-
-            if unfulfilled_units <= 0.01 {
-                break;
-            }
-        }
-
-        transactions
-    }
-
     pub fn consume(
         &mut self,
         commodity_type: CommodityType,
@@ -434,22 +380,6 @@ impl Market {
 pub struct Transaction {
     pub buyer: Entity,
     pub seller: Entity,
-    pub commodity_type: CommodityType,
-    pub units: f32,
-    pub unit_price: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct AvailablePurchase {
-    pub seller: Entity,
-    pub commodity_type: CommodityType,
-    pub units: f32,
-    pub unit_price: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct AvailableSale {
-    pub buyer: Entity,
     pub commodity_type: CommodityType,
     pub units: f32,
     pub unit_price: f32,
