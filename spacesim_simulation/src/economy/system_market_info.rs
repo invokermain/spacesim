@@ -1,6 +1,6 @@
 use crate::economy::commodity_type::CommodityType;
 use crate::economy::market::Market;
-use bevy::log::info;
+
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 use bevy::utils::hashbrown::HashMap;
 use strum::IntoEnumIterator;

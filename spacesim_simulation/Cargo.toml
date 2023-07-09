@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy_utility_ai = { path = "../bevy_utility_ai" }
+bevy_utility_ai = { path = "../bevy_utility_ai", features = ["dashboard"] }
 bevy = { git = "https://github.com/bevyengine/bevy", default-features = false }
+# aery = { git = "https://github.com/iiYese/aery", branch = "dev" }
 strum = "0.25.0"
 strum_macros = "0.25.0"
 

@@ -12,10 +12,12 @@ use bevy_utility_ai::{input_system, targeted_input_system};
 
 use super::components::SystemCoordinates;
 use crate::common::marker_components::IsPlanet;
+use crate::economy::commodity_type::CommodityType;
 use crate::economy::components::{CommodityStorage, Wealth};
 use crate::economy::market::Market;
 use crate::economy::system_market_info::SystemMarketInfo;
 use crate::planet::components::OnPlanet;
+use strum::IntoEnumIterator;
 
 // Marker component for our AI system
 #[derive(Component)]
@@ -66,16 +68,15 @@ pub(crate) fn market_trade_potential(
         .unwrap_or(&0.0)
 }
 
-// /// Expected revenue of selling goods at a target Market. Range: 0 -> ~50
-// #[targeted_input_system]
-// pub(crate) fn expected_sale_revenue(
-//     target: (Entity, &Market),
-// ) -> f32 {
-//     *res_system_market_info
-//         .market_total_trade_potential
-//         .get(&target.0)
-//         .unwrap_or(&0.0)
-// }
+/// Expected revenue of selling goods at a target Market. Range: 0 -> ~100
+#[targeted_input_system]
+pub(crate) fn expected_sale_revenue(subject: (&CommodityStorage,), target: (&Market,)) -> f32 {
+    CommodityType::iter()
+        .map(|commodity_type| {
+            target.0.unit_price(commodity_type) * subject.0.storage[commodity_type as usize]
+        })
+        .sum()
+}
 
 pub(super) fn define_ship_ai(app: &mut App) {
     DefineAI::<ShipAI>::new()
@@ -99,27 +100,27 @@ pub(super) fn define_ship_ai(app: &mut App) {
                     ),
                 ),
         )
-        // .add_decision(
-        //     Decision::targeted::<ActionMoveToPlanet>()
-        //         .target_filter_include::<IsPlanet>()
-        //         .target_filter_include::<Market>()
-        //         .subject_filter_exclude::<OnPlanet>()
-        //         .add_consideration(
-        //             Consideration::targeted(distance_to_nearby_planet).with_response_curve(
-        //                 LinearCurve::new(-1.0 / 150_000_000.0).shifted(0.0, 1.0),
-        //             ),
-        //         )
-        //         .add_consideration(
-        //             Consideration::simple(available_hold_capacity).with_response_curve(
-        //                 PolynomialCurve::new(-1.0, 3.0).shifted(0.0, 1.0),
-        //             ),
-        //         )
-        //         .add_consideration(
-        //             Consideration::targeted(market_trade_potential).with_response_curve(
-        //                 PolynomialCurve::new(1.0, 0.1).shifted(-1.0, -1.0),
-        //             ),
-        //         ),
-        // )
+        .add_decision(
+            Decision::targeted::<ActionMoveToPlanet>()
+                .target_filter_include::<IsPlanet>()
+                .target_filter_include::<Market>()
+                .subject_filter_exclude::<OnPlanet>()
+                .add_consideration(
+                    Consideration::targeted(distance_to_nearby_planet).with_response_curve(
+                        LinearCurve::new(-1.0 / 150_000_000.0).shifted(0.0, 1.0),
+                    ),
+                )
+                .add_consideration(
+                    Consideration::simple(available_hold_capacity).with_response_curve(
+                        PolynomialCurve::new(-1.0, 3.0).shifted(0.0, 1.0),
+                    ),
+                )
+                .add_consideration(
+                    Consideration::targeted(expected_sale_revenue).with_response_curve(
+                        PolynomialCurve::new(1.0, 0.1).shifted(-1.0, -1.0),
+                    ),
+                ),
+        )
         .add_decision(
             Decision::simple::<ActionPurchaseGoodsFromMarket>()
                 .subject_filter_include::<OnPlanet>()
@@ -133,7 +134,11 @@ pub(super) fn define_ship_ai(app: &mut App) {
                     ),
                 ),
         )
-        .add_decision(Decision::simple::<ActionTakeOffFromPlanet>().set_base_score(0.20))
+        .add_decision(
+            Decision::simple::<ActionTakeOffFromPlanet>()
+                .set_base_score(0.20)
+                .subject_filter_include::<OnPlanet>(),
+        )
         .register(app);
 }
 

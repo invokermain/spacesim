@@ -1,4 +1,4 @@
-use super::systems::{company_simulate, population_consumption, update_market_statistics};
+use super::systems::{consume_commodities, produce_commodities, update_market_statistics};
 use crate::economy::system_market_info::{update_system_market_info, SystemMarketInfo};
 use bevy::app::FixedUpdate;
 use bevy::prelude::{IntoSystemConfigs, IntoSystemSetConfig, Plugin, SystemSet};
@@ -16,7 +16,7 @@ impl Plugin for EconomySimulationPlugin {
         app.init_resource::<SystemMarketInfo>()
             .add_systems(
                 FixedUpdate,
-                (company_simulate, population_consumption)
+                (produce_commodities, consume_commodities)
                     .in_set(EconomySimulationSet::Simulate),
             )
             .add_systems(

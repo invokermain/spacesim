@@ -1,9 +1,10 @@
-use bevy::app::{App, PluginGroup, ScheduleRunnerPlugin};
+use bevy::app::{App, PluginGroup, ScheduleRunnerPlugin, Update};
 use bevy::log::{info, LogPlugin};
 use std::time::Duration;
 
-use bevy::prelude::{EventReader, PostUpdate};
-use bevy::MinimalPlugins;
+use bevy::prelude::{EventReader, IntoSystemConfigs};
+use bevy::DefaultPlugins;
+use bevy_utility_ai::plugin::UtililityAISet;
 use bevy_utility_ai::systems::make_decisions::EntityActionChangeEvent;
 use spacesim_simulation::SimulationPlugin;
 
@@ -19,13 +20,16 @@ fn log_ai_updated_action(mut e_update_action: EventReader<EntityActionChangeEven
 fn main() {
     App::new()
         .add_plugins((
-            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0))),
-            LogPlugin {
-                filter: "info,wgpu_core=warn,wgpu_hal=warn,bevy_utility_ai=info".into(),
+            ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0)),
+            DefaultPlugins.set(LogPlugin {
+                filter: "info,wgpu=error,naga=warn,bevy_utility_ai=info".into(),
                 level: bevy::log::Level::DEBUG,
-            },
+            }),
             SimulationPlugin,
         ))
-        .add_systems(PostUpdate, log_ai_updated_action)
+        .add_systems(
+            Update,
+            log_ai_updated_action.in_set(UtililityAISet::UpdateActions),
+        )
         .run();
 }

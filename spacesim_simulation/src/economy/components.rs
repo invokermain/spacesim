@@ -1,15 +1,18 @@
 use bevy::prelude::{Bundle, Component, Entity};
 use std::fmt::Debug;
 
-use crate::common::marker_components::IsCompany;
 use crate::planet::components::OnPlanet;
 
 use super::commodity_type::{CommodityArr, CommodityType, COMMODITY_COUNT};
 
 #[derive(Component, Clone, Copy)]
-pub struct Production {
-    pub commodity_type: CommodityType,
-    pub output_per_tick: f32,
+pub struct CommodityProducer {
+    pub production: CommodityArr<f32>,
+}
+
+#[derive(Component, Clone, Copy)]
+pub struct CommodityConsumer {
+    pub consumption: CommodityArr<f32>,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -17,19 +20,6 @@ pub struct CommodityStorage {
     pub storage: CommodityArr<f32>,
     pub max_capacity: f32,
     pub available_capacity: f32,
-}
-
-#[derive(Component, Debug, Clone, Copy)]
-pub struct CommodityPricing {
-    pub value: CommodityArr<f32>,
-}
-
-impl Default for CommodityPricing {
-    fn default() -> Self {
-        Self {
-            value: [1.0, 0.5, 2.0],
-        }
-    }
 }
 
 impl CommodityStorage {
@@ -65,46 +55,14 @@ pub struct Wealth {
     pub value: f32,
 }
 
-#[derive(Component, Clone)]
-pub struct OwnedFactories {
-    pub value: Vec<Entity>,
-}
-
-impl Default for OwnedFactories {
-    fn default() -> Self {
-        Self {
-            value: Default::default(),
-        }
-    }
-}
-
 #[derive(Bundle)]
 pub struct ManufactoryBundle {
-    pub production: Production,
+    pub production: CommodityProducer,
     pub on_planet: OnPlanet,
+    pub target_market: TargetMarket,
 }
 
-#[derive(Bundle)]
-pub struct CompanyBundle {
-    pub is: IsCompany,
-    pub wealth: Wealth,
-    pub commodity_storage: CommodityStorage,
-    pub commodity_pricing: CommodityPricing,
-    pub owned_factories: OwnedFactories,
-    pub on_planet: OnPlanet,
-}
-
-impl CompanyBundle {
-    pub fn new(wealth: f32, owned_factories: &Vec<Entity>, on_planet: Entity) -> Self {
-        CompanyBundle {
-            is: IsCompany {},
-            wealth: Wealth { value: wealth },
-            commodity_storage: CommodityStorage::new(100.0),
-            commodity_pricing: CommodityPricing::default(),
-            owned_factories: OwnedFactories {
-                value: owned_factories.clone(),
-            },
-            on_planet: OnPlanet { value: on_planet },
-        }
-    }
+#[derive(Component)]
+pub struct TargetMarket {
+    pub value: Entity,
 }
