@@ -9,10 +9,8 @@ impl Plugin for DebuggerPlugin {
 }
 
 fn create_new_window_system(mut commands: Commands) {
-    let debugger_window_id = commands
-        .spawn(Window {
-            title: "SpaceSim Debugger".to_owned(),
-            ..Default::default()
-        })
-        .id();
+    commands.spawn(Window {
+        title: "SpaceSim Debugger".to_owned(),
+        ..Default::default()
+    });
 }

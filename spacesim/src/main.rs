@@ -21,7 +21,7 @@ fn main() {
     let mut app = App::new();
 
     if cfg!(debug_assertions) {
-        app.add_pluginss(
+        app.add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -41,7 +41,7 @@ fn main() {
         ]))
         .add_plugin(DebuggerPlugin);
     } else {
-        app.add_pluginss(
+        app.add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {

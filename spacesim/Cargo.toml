@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 bevy_utility_ai = { path = "../bevy_utility_ai" }
 spacesim_simulation = { path = "../spacesim_simulation" }
-bevy = "0.10"
-bevy_egui = "0.20"
+bevy = { git = "https://github.com/bevyengine/bevy" }
+bevy_egui = { git = "https://github.com/Vrixyz/bevy_egui", branch = "bevy-main" }
 egui_extras = "0.21"
 bevy_vector_shapes = "0.4.5"
