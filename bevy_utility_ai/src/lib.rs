@@ -7,6 +7,9 @@ pub mod response_curves;
 pub mod systems;
 pub mod utils;
 
+#[cfg(feature = "dashboard")]
+pub mod dashboard;
+
 pub use bevy_utility_ai_macros::{input_system, targeted_input_system};
 
 pub use crate::ai_meta::AIMeta;

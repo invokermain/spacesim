@@ -6,6 +6,10 @@ edition = "2021"
 [dependencies]
 bevy_utility_ai_macros = { path = "../bevy_utility_ai_macros" }
 bevy = { git = "https://github.com/bevyengine/bevy", default-features = false }
+bevy_egui = { git = "https://github.com/Vrixyz/bevy_egui", branch = "bevy-main", optional = true }
+
+[features]
+dashboard = ["dep:bevy_egui"]
 
 [dev-dependencies]
 trybuild = "1"

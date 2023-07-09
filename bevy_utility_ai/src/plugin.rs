@@ -49,7 +49,10 @@ impl Plugin for UtilityAIPlugin {
             .init_resource::<AddedSystemTracker>()
             .add_systems(
                 self.schedule.dyn_clone(),
-                (make_decisions_sys, update_actions_sys).in_set(UtililityAISet::MakeDecisions),
+                (
+                    make_decisions_sys.in_set(UtililityAISet::MakeDecisions),
+                    update_actions_sys.in_set(UtililityAISet::UpdateActions),
+                ),
             )
             .configure_set(
                 self.schedule.dyn_clone(),
